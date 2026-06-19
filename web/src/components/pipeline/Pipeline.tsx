@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll, type Variants } from "framer-motion";
 import { TokenChip } from "../ui/TokenChip";
 import { GlassPanel } from "../ui/GlassPanel";
 import { SectionLabel } from "../ui/SectionLabel";
 import { useMotionPref } from "../ui/MotionToggle";
+import { getLenis } from "../../hooks/useLenis";
 import { playSeal } from "../../lib/sound";
 import { CATEGORY_META, type Category } from "../../lib/types";
 
@@ -60,7 +61,7 @@ const STAGES: { title: string; caption: string; body: ReactNode }[] = [
   },
   {
     title: "Reason",
-    caption: "Only tokens leave your environment; the model reasons over them, never raw values.",
+    caption: "Only tokens leave your environment — the model never sees a raw value.",
     body: <p className="flex flex-wrap items-center gap-y-1 font-mono text-[14px] leading-loose">{withChips(REASON_LINE)}</p>,
   },
   {
@@ -151,39 +152,81 @@ function Rail({ active, onJump }: { active: number; onJump: (i: number) => void 
 export function Pipeline() {
   const { reduced } = useMotionPref();
   const sectionRef = useRef<HTMLElement>(null);
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
   const [dir, setDir] = useState(1);
   const [paused, setPaused] = useState(false);
   const [inView, setInView] = useState(false);
+  const lastScroll = useRef(0);
 
-  const jump = (i: number) => {
-    if (i === active) return;
-    setDir(i > active ? 1 : -1);
-    setActive(i);
-    playSeal();
-  };
+  // Even buckets: each stage owns an equal slice of the scroll track, so a steady
+  // scroll moves Detect -> Mask -> Reason -> Unmask at a constant rhythm.
+  useMotionValueEvent(scrollYProgress, "change", (v) => {
+    const next = Math.min(N - 1, Math.max(0, Math.floor(v * N)));
+    setActive((prev) => {
+      if (next !== prev) {
+        setDir(next > prev ? 1 : -1);
+        playSeal();
+      }
+      return next;
+    });
+  });
 
-  // Autoplay runs only while the section is on screen and the cursor is away.
+  // Note real user scrolls so autoplay never fights an active gesture.
   useEffect(() => {
-    const el = sectionRef.current;
+    const mark = () => {
+      lastScroll.current = Date.now();
+    };
+    window.addEventListener("wheel", mark, { passive: true });
+    window.addEventListener("touchmove", mark, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", mark);
+      window.removeEventListener("touchmove", mark);
+    };
+  }, []);
+
+  // Autoplay only while the pinned panel actually fills the screen.
+  useEffect(() => {
+    const el = stickyRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.4 });
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.6 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
+  // Advance by animating real scroll position (Lenis) to the centre of the next
+  // stage's bucket, so manual scroll and autoplay share one source of truth.
+  const goTo = (i: number) => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const target = Math.max(0, Math.min(N - 1, i));
+    const travel = el.offsetHeight - window.innerHeight;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const targetY = top + ((target + 0.5) / N) * travel;
+    const lenis = getLenis();
+    if (lenis) lenis.scrollTo(targetY, { duration: 0.8 });
+    else window.scrollTo({ top: targetY, behavior: "smooth" });
+  };
+
+  // 3s autoplay — paused on hover, waits out manual scrolls, stops at the last stage.
   useEffect(() => {
-    if (reduced || paused || !inView) return;
-    const id = window.setTimeout(() => {
-      setDir(1);
-      setActive((prev) => (prev + 1) % N);
-      playSeal();
-    }, AUTOPLAY_MS);
-    return () => window.clearTimeout(id);
+    if (reduced || paused || !inView || active >= N - 1) return;
+    let timer = 0;
+    const tick = () => {
+      if (Date.now() - lastScroll.current < 1200) {
+        timer = window.setTimeout(tick, 500);
+        return;
+      }
+      goTo(active + 1);
+    };
+    timer = window.setTimeout(tick, AUTOPLAY_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduced, paused, inView, active]);
 
   if (reduced) {
-    // Accessible fallback: a calm stacked sequence, no autoplay.
+    // Accessible fallback: a calm stacked sequence, no pin, no autoplay.
     return (
       <section id="pipeline" className="mx-auto max-w-5xl px-6 py-28">
         <SectionLabel>The pipeline</SectionLabel>
@@ -205,38 +248,37 @@ export function Pipeline() {
   }
 
   return (
-    <section
-      id="pipeline"
-      ref={sectionRef}
-      className="relative flex min-h-[100svh] flex-col justify-center overflow-hidden px-6 py-24"
-    >
-      <div className="absolute left-6 top-10 z-[5] sm:left-10">
-        <SectionLabel>The pipeline</SectionLabel>
-      </div>
+    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "260vh" }}>
       <div
-        className="mx-auto flex w-full max-w-6xl items-center gap-10"
+        ref={stickyRef}
+        className="sticky top-0 flex h-[100svh] items-center overflow-hidden"
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}
       >
-        <Rail active={active} onJump={jump} />
-        <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
-          <AnimatePresence initial={false} custom={dir}>
-            <motion.div
-              key={active}
-              custom={dir}
-              variants={slide}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute inset-0 flex items-center justify-center"
-            >
-              <StagePanel>
-                <StageHeader index={active} title={STAGES[active].title} caption={STAGES[active].caption} />
-                {STAGES[active].body}
-              </StagePanel>
-            </motion.div>
-          </AnimatePresence>
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-10 px-6">
+          <Rail active={active} onJump={goTo} />
+          <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
+            <AnimatePresence initial={false} custom={dir}>
+              <motion.div
+                key={active}
+                custom={dir}
+                variants={slide}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <StagePanel>
+                  <StageHeader index={active} title={STAGES[active].title} caption={STAGES[active].caption} />
+                  {STAGES[active].body}
+                </StagePanel>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+        <div className="absolute left-6 top-10 z-[5] sm:left-10">
+          <SectionLabel>The pipeline</SectionLabel>
         </div>
       </div>
     </section>

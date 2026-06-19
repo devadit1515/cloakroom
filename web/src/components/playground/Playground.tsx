@@ -183,7 +183,7 @@ export function Playground() {
               <button
                 type="button"
                 onClick={() => setInput(PLAYGROUND_DEFAULT)}
-                className="font-mono text-[12px] text-mercury/55 hover:text-mercury-bright focus-visible:outline-2"
+                className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2.5 font-mono text-[12px] text-mercury/75 transition-colors hover:border-white/25 hover:text-mercury-bright focus-visible:outline-2"
               >
                 reset sample
               </button>
