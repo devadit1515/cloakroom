@@ -2,6 +2,8 @@
 
 **Cloud-agnostic PII / PHI / PFI masking middleware for LLM calls.**
 
+> **▶ Live demo:** https://cloakroom-mu.vercel.app — paste a record into the playground and watch it get masked, sent to the model as tokens, and restored.
+
 Drop Cloakroom in front of any LLM call and it transparently runs
 `detect → mask → LLM → unmask`: sensitive values are replaced with stable
 placeholder tokens before the model ever sees them, the model reasons over the
