@@ -39,9 +39,9 @@ export function MercuryButton({
       style={
         variant === "primary"
           ? {
-              background: "linear-gradient(180deg, #EAF0F8 0%, #C8D2E0 55%, #AEB9CB 100%)",
+              background: "linear-gradient(180deg, #EEF2F8, #D3DCEA)",
               boxShadow:
-                "0 1px 0 0 rgba(255,255,255,0.7) inset, 0 16px 40px -16px rgba(200,210,224,0.55), 0 2px 8px -2px rgba(0,0,0,0.5)",
+                "0 1px 0 0 rgba(255,255,255,0.65) inset, 0 14px 34px -18px rgba(200,210,224,0.5), 0 2px 8px -3px rgba(0,0,0,0.45)",
             }
           : undefined
       }

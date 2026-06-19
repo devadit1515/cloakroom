@@ -3,6 +3,12 @@ import Lenis from "lenis";
 
 let lenisInstance: Lenis | null = null;
 
+/** The live Lenis instance, or null when smooth scroll is off (reduced motion).
+ *  Lets components animate real scroll position (e.g. the pipeline autoplay). */
+export function getLenis(): Lenis | null {
+  return lenisInstance;
+}
+
 /** Smoothly scroll to an element id (used by the "Try it" CTA and footer links). */
 export function scrollToId(id: string) {
   const el = document.getElementById(id);

@@ -1,16 +1,10 @@
-import { useRef, useState, type ReactNode } from "react";
-import {
-  motion,
-  useMotionValueEvent,
-  useScroll,
-  useSpring,
-  useTransform,
-  type MotionValue,
-} from "framer-motion";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll, type Variants } from "framer-motion";
 import { TokenChip } from "../ui/TokenChip";
 import { GlassPanel } from "../ui/GlassPanel";
 import { SectionLabel } from "../ui/SectionLabel";
 import { useMotionPref } from "../ui/MotionToggle";
+import { getLenis } from "../../hooks/useLenis";
 import { playSeal } from "../../lib/sound";
 import { CATEGORY_META, type Category } from "../../lib/types";
 
@@ -20,9 +14,9 @@ const TOKEN_SPLIT = /(\[(?:PII|PHI|PFI)_[A-Z]+_\d+\])/g;
 function withChips(text: string): ReactNode[] {
   return text.split(TOKEN_SPLIT).map((part, i) => {
     const m = /^\[(PII|PHI|PFI)_/.exec(part);
-    if (m) return <TokenChip key={i} token={part} category={m[1] as Category} size="sm" className="mx-0.5" />;
+    if (m) return <TokenChip key={i} token={part} category={m[1] as Category} size="md" className="mx-0.5 my-1" />;
     return (
-      <span key={i} className="text-mercury/55">
+      <span key={i} className="text-mercury/60">
         {part}
       </span>
     );
@@ -30,26 +24,27 @@ function withChips(text: string): ReactNode[] {
 }
 
 const DETECTED = [
-  { raw: "Prachan Mehta", cat: "PII" as Category, sub: "person" },
-  { raw: "002233445566", cat: "PFI" as Category, sub: "account" },
-  { raw: "₹84,500", cat: "PFI" as Category, sub: "amount" },
-  { raw: "diabetes", cat: "PHI" as Category, sub: "condition" },
+  { raw: "Prachan Mehta", cat: "PII" as Category },
+  { raw: "002233445566", cat: "PFI" as Category },
+  { raw: "₹84,500", cat: "PFI" as Category },
+  { raw: "diabetes", cat: "PHI" as Category },
 ];
 
 const MASKED_LINE = "Prachan Mehta → [PII_PERSON_1] · 002233445566 → [PFI_ACCOUNT_1] · ₹84,500 → [PFI_AMOUNT_1] · diabetes → [PHI_CONDITION_1]";
 const REASON_LINE = "Customer [PII_PERSON_1] holds [PFI_ACCOUNT_1]. The [PFI_AMOUNT_1] order is consistent with prior activity; [PHI_CONDITION_1] care is noted. No anomaly detected.";
 const RESTORED_LINE = "Customer Prachan Mehta holds ICICI account 002233445566. The ₹84,500 order is consistent with prior activity; diabetes care is noted. No anomaly detected.";
 
+// Captions kept to ~2 lines each so the four stages read at the same rhythm.
 const STAGES: { title: string; caption: string; body: ReactNode }[] = [
   {
     title: "Detect",
-    caption: "Format rules catch PAN, Aadhaar, IFSC, accounts and amounts; NER catches names and conditions.",
+    caption: "Format rules catch IDs, accounts and amounts; NER catches names and conditions.",
     body: (
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-3">
         {DETECTED.map((d) => (
           <span
             key={d.raw}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[13px]"
+            className="inline-flex items-center gap-2.5 rounded-full px-4 py-2 font-mono text-[14px]"
             style={{ color: CATEGORY_META[d.cat].hex, border: `1px dashed ${CATEGORY_META[d.cat].hex}55`, background: "rgba(202,212,228,0.03)" }}
           >
             {d.raw}
@@ -61,24 +56,30 @@ const STAGES: { title: string; caption: string; body: ReactNode }[] = [
   },
   {
     title: "Mask",
-    caption: "Each value becomes a stable token. Same value, same token — so relationships survive.",
-    body: <p className="flex flex-wrap items-center gap-y-2 font-mono text-[13px] leading-loose">{withChips(MASKED_LINE)}</p>,
+    caption: "Every value becomes a stable token — same value, same token, so relationships survive.",
+    body: <p className="flex flex-wrap items-center gap-y-1 font-mono text-[14px] leading-loose">{withChips(MASKED_LINE)}</p>,
   },
   {
     title: "Reason",
-    caption: "Only placeholders leave your environment. The model reasons over tokens, never raw values.",
-    body: <p className="flex flex-wrap items-center gap-y-2 font-mono text-[13px] leading-loose">{withChips(REASON_LINE)}</p>,
+    caption: "Only tokens leave your environment; the model reasons over them, never raw values.",
+    body: <p className="flex flex-wrap items-center gap-y-1 font-mono text-[14px] leading-loose">{withChips(REASON_LINE)}</p>,
   },
   {
     title: "Unmask",
-    caption: "Tokens are swapped back from the encrypted vault — the finished answer, for you alone.",
-    body: <p className="text-[15px] leading-relaxed text-mercury-bright">{RESTORED_LINE}</p>,
+    caption: "Tokens swap back from the encrypted vault — the finished answer, for your eyes only.",
+    body: <p className="text-[clamp(1.05rem,1.7vw,1.3rem)] leading-relaxed text-mercury-bright">{RESTORED_LINE}</p>,
   },
 ];
 
-function StagePanel({ children }: { children: ReactNode }) {
+const N = STAGES.length;
+const AUTOPLAY_MS = 3000;
+
+function StagePanel({ children, stacked = false }: { children: ReactNode; stacked?: boolean }) {
   return (
-    <GlassPanel className="glass-strong w-full max-w-2xl px-7 py-9 sm:px-10 sm:py-11" specular>
+    <GlassPanel
+      className={`glass-strong flex w-full max-w-4xl flex-col justify-center px-8 py-10 sm:px-14 sm:py-16 ${stacked ? "" : "h-full"}`}
+      specular
+    >
       {children}
     </GlassPanel>
   );
@@ -87,60 +88,62 @@ function StagePanel({ children }: { children: ReactNode }) {
 function StageHeader({ index, title, caption }: { index: number; title: string; caption: string }) {
   return (
     <>
-      <div className="mb-5 flex items-baseline gap-4">
-        <span className="font-mono text-sm text-mercury-deep">0{index + 1}</span>
-        <h3 className="font-display text-[clamp(1.8rem,4vw,2.6rem)] font-semibold tracking-[-0.02em] text-mercury-bright">
+      <div className="mb-6 flex items-baseline gap-4">
+        <span className="font-mono text-sm text-mercury-deep">
+          0{index + 1}
+          <span className="text-mercury-deep/45"> / 0{N}</span>
+        </span>
+        <h3 className="font-display text-[clamp(2rem,4.5vw,3rem)] font-semibold tracking-[-0.025em] text-mercury-bright">
           {title}
         </h3>
       </div>
-      <p className="mb-7 max-w-md text-[15px] leading-relaxed text-mercury/70">{caption}</p>
+      <p className="mb-9 max-w-lg text-pretty text-[clamp(1rem,1.5vw,1.15rem)] leading-relaxed text-mercury/75">
+        {caption}
+      </p>
     </>
   );
 }
 
-/** A single fly-through layer. Far -> centred -> receding, blurring at the edges of its window. */
-function FlyStage({ progress, index, children }: { progress: MotionValue<number>; index: number; children: ReactNode }) {
-  const c = index / (STAGES.length - 1);
-  const opacity = useTransform(progress, [c - 0.17, c - 0.05, c + 0.05, c + 0.17], [0, 1, 1, 0]);
-  const scale = useTransform(progress, [c - 0.17, c, c + 0.17], [1.32, 1, 0.72]);
-  const y = useTransform(progress, [c - 0.17, c, c + 0.17], [70, 0, -56]);
-  const blur = useTransform(progress, [c - 0.17, c - 0.04, c + 0.04, c + 0.17], ["blur(14px)", "blur(0px)", "blur(0px)", "blur(14px)"]);
-  return (
-    <motion.div style={{ opacity, scale, y, filter: blur }} className="absolute inset-0 flex items-center justify-center px-6">
-      {children}
-    </motion.div>
-  );
-}
+// Crossfade with a small directional rise. Transform + opacity only — never blur.
+const slide: Variants = {
+  enter: (dir: number) => ({ opacity: 0, y: dir >= 0 ? 26 : -26 }),
+  center: { opacity: 1, y: 0 },
+  exit: (dir: number) => ({ opacity: 0, y: dir >= 0 ? -26 : 26 }),
+};
 
-function Rail({ progress, active }: { progress: MotionValue<number>; active: number }) {
-  const len = useSpring(progress, { stiffness: 120, damping: 30 });
+function Rail({ active, onJump }: { active: number; onJump: (i: number) => void }) {
   return (
-    <div className="relative hidden h-[60vh] w-44 shrink-0 lg:block">
-      <svg viewBox="0 0 24 400" preserveAspectRatio="none" className="absolute left-0 top-0 h-full w-6">
-        <line x1="12" y1="6" x2="12" y2="394" stroke="rgba(140,151,171,0.18)" strokeWidth="1.5" />
-        <motion.line
-          x1="12"
-          y1="6"
-          x2="12"
-          y2="394"
-          stroke="rgba(234,240,248,0.7)"
-          strokeWidth="1.5"
-          style={{ pathLength: len }}
-        />
-      </svg>
+    <div className="relative hidden h-[clamp(300px,46vh,440px)] w-44 shrink-0 lg:block">
+      <div className="absolute left-[5px] top-0 h-full w-px bg-mercury/15" />
+      <div
+        className="absolute left-[5px] top-0 w-px bg-mercury-bright/70 transition-[height] duration-500 ease-out"
+        style={{ height: `${(active / (N - 1)) * 100}%` }}
+      />
       {STAGES.map((s, i) => (
-        <div key={s.title} className="absolute left-8 flex items-center gap-3" style={{ top: `calc(${(i / (STAGES.length - 1)) * 100}% - 8px)` }}>
+        <button
+          key={s.title}
+          type="button"
+          onClick={() => onJump(i)}
+          aria-current={i === active}
+          className="group absolute left-0 flex items-center gap-3.5 focus-visible:outline-2"
+          style={{ top: `calc(${(i / (N - 1)) * 100}% - 6px)` }}
+        >
           <span
-            className="h-2.5 w-2.5 rounded-full transition-all duration-300"
-            style={{
-              background: i <= active ? "#EAF0F8" : "rgba(140,151,171,0.3)",
-              boxShadow: i === active ? "0 0 12px 2px rgba(234,240,248,0.6)" : "none",
-            }}
+            className="h-3 w-3 shrink-0 rounded-full border transition-all duration-300"
+            style={
+              i <= active
+                ? { background: "#EAF0F8", borderColor: "transparent", boxShadow: i === active ? "0 0 14px 2px rgba(234,240,248,0.55)" : "none" }
+                : { background: "transparent", borderColor: "rgba(140,151,171,0.4)" }
+            }
           />
-          <span className={`font-mono text-[12px] tracking-wide transition-colors duration-300 ${i === active ? "text-mercury-bright" : "text-mercury-deep"}`}>
+          <span
+            className={`font-mono text-[13px] tracking-wide transition-colors duration-300 ${
+              i === active ? "text-mercury-bright" : "text-mercury-deep group-hover:text-mercury/80"
+            }`}
+          >
             {s.title}
           </span>
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -149,21 +152,59 @@ function Rail({ progress, active }: { progress: MotionValue<number>; active: num
 export function Pipeline() {
   const { reduced } = useMotionPref();
   const sectionRef = useRef<HTMLElement>(null);
+  const stickyRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
+  const [dir, setDir] = useState(1);
+  const [paused, setPaused] = useState(false);
+  const [inView, setInView] = useState(false);
 
+  // Scroll position is the single source of truth: a scroll flick steps through
+  // all four stages quickly, then the sticky track ends and the page moves on.
   useMotionValueEvent(scrollYProgress, "change", (v) => {
-    const next = Math.min(STAGES.length - 1, Math.max(0, Math.round(v * (STAGES.length - 1))));
+    const next = Math.min(N - 1, Math.max(0, Math.round(v * (N - 1))));
     setActive((prev) => {
-      if (next !== prev) playSeal();
+      if (next !== prev) {
+        setDir(next > prev ? 1 : -1);
+        playSeal();
+      }
       return next;
     });
   });
 
+  // Autoplay runs only while the pinned panel actually fills the screen.
+  useEffect(() => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.6 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Advance by animating real scroll position (Lenis), so manual scroll and
+  // autoplay never fight over a separate index.
+  const goTo = useCallback((i: number) => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const target = Math.max(0, Math.min(N - 1, i));
+    const travel = el.offsetHeight - window.innerHeight;
+    const targetY = el.offsetTop + (target / (N - 1)) * travel;
+    const lenis = getLenis();
+    if (lenis) lenis.scrollTo(targetY, { duration: 0.9 });
+    else window.scrollTo({ top: targetY, behavior: "smooth" });
+  }, []);
+
+  // 3s autoplay — paused on hover, stops at the last stage (you scroll on yourself).
+  useEffect(() => {
+    if (reduced || paused || !inView || active >= N - 1) return;
+    const id = window.setTimeout(() => goTo(active + 1), AUTOPLAY_MS);
+    return () => window.clearTimeout(id);
+  }, [reduced, paused, inView, active, goTo]);
+
   if (reduced) {
-    // Accessible fallback: a calm stacked sequence, no scrubbing or fly-through.
+    // Accessible fallback: a calm stacked sequence, no pin, no autoplay.
     return (
-      <section id="pipeline" className="mx-auto max-w-3xl px-6 py-28">
+      <section id="pipeline" className="mx-auto max-w-5xl px-6 py-28">
         <SectionLabel>The pipeline</SectionLabel>
         <h2 className="mb-12 mt-5 font-display text-[clamp(2rem,5vw,3.2rem)] font-semibold tracking-[-0.025em] text-mercury-bright">
           Detect. Mask. Reason. Unmask.
@@ -171,7 +212,7 @@ export function Pipeline() {
         <div className="flex flex-col gap-6">
           {STAGES.map((s, i) => (
             <motion.div key={s.title} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
-              <StagePanel>
+              <StagePanel stacked>
                 <StageHeader index={i} title={s.title} caption={s.caption} />
                 {s.body}
               </StagePanel>
@@ -183,19 +224,33 @@ export function Pipeline() {
   }
 
   return (
-    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "420vh" }}>
-      <div className="sticky top-0 flex h-[100svh] items-center overflow-hidden">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-8 px-6">
-          <Rail progress={scrollYProgress} active={active} />
-          <div className="relative h-[64vh] flex-1" style={{ perspective: 1400 }}>
-            {STAGES.map((s, i) => (
-              <FlyStage key={s.title} progress={scrollYProgress} index={i}>
+    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "300vh" }}>
+      <div
+        ref={stickyRef}
+        className="sticky top-0 flex h-[100svh] items-center overflow-hidden"
+        onPointerEnter={() => setPaused(true)}
+        onPointerLeave={() => setPaused(false)}
+      >
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-10 px-6">
+          <Rail active={active} onJump={goTo} />
+          <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
+            <AnimatePresence initial={false} custom={dir}>
+              <motion.div
+                key={active}
+                custom={dir}
+                variants={slide}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
                 <StagePanel>
-                  <StageHeader index={i} title={s.title} caption={s.caption} />
-                  {s.body}
+                  <StageHeader index={active} title={STAGES[active].title} caption={STAGES[active].caption} />
+                  {STAGES[active].body}
                 </StagePanel>
-              </FlyStage>
-            ))}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
         <div className="absolute left-6 top-10 z-[5] sm:left-10">
