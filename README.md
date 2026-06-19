@@ -160,3 +160,4 @@ mock/Ollama) **and** the full AWS adapter set (Comprehend · DynamoDB · Bedrock
 GCP adapters and a false-positive/negative tuning dashboard are intentionally left as
 follow-ups (the audit stream already emits the data the dashboard would need). 
 
+hi
