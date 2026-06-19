@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# Node / frontend
+node_modules/
+*.tsbuildinfo
+
+# Local Claude Code settings + scratch artifacts
+.claude/
+web/_shots/

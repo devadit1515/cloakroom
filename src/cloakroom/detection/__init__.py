@@ -1,0 +1,1 @@
+"""Cloakroom detection layer."""
