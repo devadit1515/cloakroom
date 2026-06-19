@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useMotionValueEvent, useScroll, type Variants } from "framer-motion";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { TokenChip } from "../ui/TokenChip";
 import { GlassPanel } from "../ui/GlassPanel";
 import { SectionLabel } from "../ui/SectionLabel";
 import { useMotionPref } from "../ui/MotionToggle";
-import { getLenis } from "../../hooks/useLenis";
 import { playSeal } from "../../lib/sound";
 import { CATEGORY_META, type Category } from "../../lib/types";
 
@@ -131,8 +130,8 @@ function Rail({ active, onJump }: { active: number; onJump: (i: number) => void 
           <span
             className="h-3 w-3 shrink-0 rounded-full border transition-all duration-300"
             style={
-              i <= active
-                ? { background: "#EAF0F8", borderColor: "transparent", boxShadow: i === active ? "0 0 14px 2px rgba(234,240,248,0.55)" : "none" }
+              i === active
+                ? { background: "#EAF0F8", borderColor: "transparent", boxShadow: "0 0 14px 2px rgba(234,240,248,0.55)" }
                 : { background: "transparent", borderColor: "rgba(140,151,171,0.4)" }
             }
           />
@@ -152,57 +151,39 @@ function Rail({ active, onJump }: { active: number; onJump: (i: number) => void 
 export function Pipeline() {
   const { reduced } = useMotionPref();
   const sectionRef = useRef<HTMLElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
   const [dir, setDir] = useState(1);
   const [paused, setPaused] = useState(false);
   const [inView, setInView] = useState(false);
 
-  // Scroll position is the single source of truth: a scroll flick steps through
-  // all four stages quickly, then the sticky track ends and the page moves on.
-  useMotionValueEvent(scrollYProgress, "change", (v) => {
-    const next = Math.min(N - 1, Math.max(0, Math.round(v * (N - 1))));
-    setActive((prev) => {
-      if (next !== prev) {
-        setDir(next > prev ? 1 : -1);
-        playSeal();
-      }
-      return next;
-    });
-  });
+  const jump = (i: number) => {
+    if (i === active) return;
+    setDir(i > active ? 1 : -1);
+    setActive(i);
+    playSeal();
+  };
 
-  // Autoplay runs only while the pinned panel actually fills the screen.
+  // Autoplay runs only while the section is on screen and the cursor is away.
   useEffect(() => {
-    const el = stickyRef.current;
+    const el = sectionRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.6 });
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.4 });
     io.observe(el);
     return () => io.disconnect();
   }, []);
 
-  // Advance by animating real scroll position (Lenis), so manual scroll and
-  // autoplay never fight over a separate index.
-  const goTo = useCallback((i: number) => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const target = Math.max(0, Math.min(N - 1, i));
-    const travel = el.offsetHeight - window.innerHeight;
-    const targetY = el.offsetTop + (target / (N - 1)) * travel;
-    const lenis = getLenis();
-    if (lenis) lenis.scrollTo(targetY, { duration: 0.9 });
-    else window.scrollTo({ top: targetY, behavior: "smooth" });
-  }, []);
-
-  // 3s autoplay — paused on hover, stops at the last stage (you scroll on yourself).
   useEffect(() => {
-    if (reduced || paused || !inView || active >= N - 1) return;
-    const id = window.setTimeout(() => goTo(active + 1), AUTOPLAY_MS);
+    if (reduced || paused || !inView) return;
+    const id = window.setTimeout(() => {
+      setDir(1);
+      setActive((prev) => (prev + 1) % N);
+      playSeal();
+    }, AUTOPLAY_MS);
     return () => window.clearTimeout(id);
-  }, [reduced, paused, inView, active, goTo]);
+  }, [reduced, paused, inView, active]);
 
   if (reduced) {
-    // Accessible fallback: a calm stacked sequence, no pin, no autoplay.
+    // Accessible fallback: a calm stacked sequence, no autoplay.
     return (
       <section id="pipeline" className="mx-auto max-w-5xl px-6 py-28">
         <SectionLabel>The pipeline</SectionLabel>
@@ -224,37 +205,38 @@ export function Pipeline() {
   }
 
   return (
-    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "300vh" }}>
+    <section
+      id="pipeline"
+      ref={sectionRef}
+      className="relative flex min-h-[100svh] flex-col justify-center overflow-hidden px-6 py-24"
+    >
+      <div className="absolute left-6 top-10 z-[5] sm:left-10">
+        <SectionLabel>The pipeline</SectionLabel>
+      </div>
       <div
-        ref={stickyRef}
-        className="sticky top-0 flex h-[100svh] items-center overflow-hidden"
+        className="mx-auto flex w-full max-w-6xl items-center gap-10"
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}
       >
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-10 px-6">
-          <Rail active={active} onJump={goTo} />
-          <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
-            <AnimatePresence initial={false} custom={dir}>
-              <motion.div
-                key={active}
-                custom={dir}
-                variants={slide}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute inset-0 flex items-center justify-center"
-              >
-                <StagePanel>
-                  <StageHeader index={active} title={STAGES[active].title} caption={STAGES[active].caption} />
-                  {STAGES[active].body}
-                </StagePanel>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
-        <div className="absolute left-6 top-10 z-[5] sm:left-10">
-          <SectionLabel>The pipeline</SectionLabel>
+        <Rail active={active} onJump={jump} />
+        <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
+          <AnimatePresence initial={false} custom={dir}>
+            <motion.div
+              key={active}
+              custom={dir}
+              variants={slide}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute inset-0 flex items-center justify-center"
+            >
+              <StagePanel>
+                <StageHeader index={active} title={STAGES[active].title} caption={STAGES[active].caption} />
+                {STAGES[active].body}
+              </StagePanel>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </section>

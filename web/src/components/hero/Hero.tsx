@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useScroll, useTransform, type Variants } from "framer-motion";
 import { MaskMorph } from "./MaskMorph";
 import { MercuryButton } from "../ui/MercuryButton";
@@ -6,8 +6,6 @@ import { GlassPanel } from "../ui/GlassPanel";
 import { useMotionPref } from "../ui/MotionToggle";
 import { scrollToId } from "../../hooks/useLenis";
 import { HERO_SEGMENTS } from "../../lib/sample";
-
-const VaultScene = lazy(() => import("./VaultScene"));
 
 const TRUST = ["HIPAA", "PCI-DSS", "GDPR", "DPDP", "zero paid keys"];
 
@@ -25,17 +23,6 @@ export function Hero() {
   const { reduced } = useMotionPref();
   const sectionRef = useRef<HTMLElement>(null);
   const inView = useInView(sectionRef, { once: true, margin: "0px" });
-
-  // Load the WebGL slab only on capable desktops, in view, with motion enabled.
-  const [desktop, setDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px) and (pointer: fine)");
-    const update = () => setDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  const show3D = desktop && !reduced && inView;
 
   // signature interaction — auto-cycle mask/unmask, re-triggerable by the control
   const [masked, setMasked] = useState(true);
@@ -61,17 +48,6 @@ export function Hero() {
           className="absolute left-1/2 top-[40%] h-[64vmin] w-[88vmin] -translate-x-1/2 -translate-y-1/2 rounded-full"
           style={{ background: "radial-gradient(circle, rgba(216,184,126,0.15), transparent 64%)", filter: "blur(22px)" }}
         />
-      </div>
-
-      {/* WebGL vault slab — static, centred, behind the content */}
-      <div aria-hidden className="absolute inset-0 z-[1] flex items-center justify-center">
-        <div className="h-[82vmin] w-[82vmin] max-w-[860px] opacity-90">
-          {show3D && (
-            <Suspense fallback={null}>
-              <VaultScene />
-            </Suspense>
-          )}
-        </div>
       </div>
 
       {/* content — wide column that fills the page */}
