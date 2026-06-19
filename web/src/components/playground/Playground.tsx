@@ -39,7 +39,7 @@ function MaskedBody({ text, dragRef }: { text: string; dragRef: React.RefObject<
             token={part}
             category={m[1] as Category}
             size="sm"
-            className="mx-0.5 my-0.5 cursor-grab active:cursor-grabbing"
+            className="mx-1.5 my-0.5 cursor-grab active:cursor-grabbing"
             drag
             dragConstraints={dragRef}
             dragElastic={0.35}
@@ -250,7 +250,7 @@ export function Playground() {
             viewport={{ once: true }}
             className="md:col-span-2"
           >
-            <GlassPanel className="flex h-full flex-wrap items-center gap-3 px-5 py-5" specular={false}>
+            <GlassPanel className="flex h-full flex-wrap items-center gap-4 px-5 py-5" specular={false}>
               <span className="label mr-1 text-mercury-deep/90">detected</span>
               {CATEGORIES.map((cat) => {
                 const { total, subs } = grouped(cat);

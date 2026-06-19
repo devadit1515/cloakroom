@@ -67,7 +67,7 @@ export function MaskMorph({ raw, token, category, masked, size = "md" }: Props) 
       };
 
   return (
-    <span className="relative inline-flex align-baseline">
+    <span className="relative mx-1 inline-flex align-baseline">
       <AnimatePresence mode="popLayout" initial={false}>
         {masked ? (
           <motion.span

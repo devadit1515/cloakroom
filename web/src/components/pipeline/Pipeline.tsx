@@ -14,7 +14,7 @@ const TOKEN_SPLIT = /(\[(?:PII|PHI|PFI)_[A-Z]+_\d+\])/g;
 function withChips(text: string): ReactNode[] {
   return text.split(TOKEN_SPLIT).map((part, i) => {
     const m = /^\[(PII|PHI|PFI)_/.exec(part);
-    if (m) return <TokenChip key={i} token={part} category={m[1] as Category} size="md" className="mx-0.5 my-1" />;
+    if (m) return <TokenChip key={i} token={part} category={m[1] as Category} size="md" className="mx-1.5 my-1" />;
     return (
       <span key={i} className="text-mercury/60">
         {part}
@@ -40,7 +40,7 @@ const STAGES: { title: string; caption: string; body: ReactNode }[] = [
     title: "Detect",
     caption: "Format rules catch IDs, accounts and amounts; NER catches names and conditions.",
     body: (
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4">
         {DETECTED.map((d) => (
           <span
             key={d.raw}
@@ -248,7 +248,7 @@ export function Pipeline() {
   }
 
   return (
-    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "260vh" }}>
+    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "180vh" }}>
       <div
         ref={stickyRef}
         className="sticky top-0 flex h-[100svh] items-center overflow-hidden"
