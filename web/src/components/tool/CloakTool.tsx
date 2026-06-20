@@ -87,6 +87,12 @@ export function CloakTool() {
         </p>
       </header>
 
+      <div className="mt-6 rounded-2xl border border-[#5FB3A8]/25 bg-[#5FB3A8]/[0.05] p-4 text-[13px] leading-relaxed text-mercury/80">
+        <span className="font-medium text-mercury-bright">🔒 Private by design.</span> Your LLM only
+        ever sees the prompt and the masked tokens — never your real data. Values are masked by a
+        local algorithm and held only in this browser tab, then deleted the moment you close it.
+      </div>
+
       {/* how to use */}
       <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
         <span className="label text-mercury-deep/90">how to use</span>
@@ -109,9 +115,8 @@ export function CloakTool() {
       </div>
 
       <p className="mt-4 font-mono text-[11px] text-mercury/45">
-        No key needed — the mask/keep decision runs on a hosted open model (Groq · Llama). Your data
-        is analyzed there to decide masking; the masked text is what your main LLM sees, and the
-        token map stays in this browser.
+        No key needed — the mask/keep decision runs on a hosted open model (Groq · Llama); only the
+        masked text is ever sent to your main LLM.
       </p>
 
       {/* 1 — input */}

@@ -115,7 +115,7 @@ export function Hero() {
         </motion.div>
 
         <motion.div variants={rise} className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <MercuryButton onClick={() => scrollToId("playground")}>Cloak a record</MercuryButton>
+          <MercuryButton onClick={() => { window.location.href = "/tool"; }}>Open the tool</MercuryButton>
           <MercuryButton variant="ghost" onClick={() => scrollToId("pipeline")}>
             See how it works
           </MercuryButton>
