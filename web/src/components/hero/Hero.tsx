@@ -80,7 +80,7 @@ export function Hero() {
 
         {/* the live record — mask/unmask playing on real sample data */}
         <motion.div variants={rise} className="mt-10 w-full max-w-3xl">
-          <GlassPanel className="px-6 py-6 sm:px-8 sm:py-7" specular>
+          <GlassPanel className="px-6 py-6 sm:px-8 sm:py-7" specular style={{ background: "rgba(9,11,17,0.72)" }}>
             <div className="mb-4 flex items-center justify-between">
               <span className="label text-mercury-deep/90">live record</span>
               <button

@@ -72,6 +72,7 @@ const STAGES: { title: string; caption: string; body: ReactNode }[] = [
 
 const N = STAGES.length;
 const SEG = 1 / (N - 1); // scroll span between two adjacent stages
+const HOLD = 0.36 * SEG; // half-width of the clear "hold" plateau around each stage
 
 function StagePanel({ children, stacked = false }: { children: ReactNode; stacked?: boolean }) {
   return (
@@ -108,10 +109,12 @@ function StageHeader({ index, title, caption }: { index: number; title: string; 
  *  instead of snapping point-to-point. */
 function StageLayer({ progress, index, children }: { progress: MotionValue<number>; index: number; children: ReactNode }) {
   const c = index * SEG;
-  const opacity = useTransform(progress, [c - SEG, c, c + SEG], [0, 1, 0]);
-  const y = useTransform(progress, [c - SEG, c, c + SEG], [34, 0, -34]);
-  const scale = useTransform(progress, [c - SEG, c, c + SEG], [1.03, 1, 0.97]);
-  const filter = useTransform(progress, [c - 0.62 * SEG, c, c + 0.62 * SEG], ["blur(8px)", "blur(0px)", "blur(8px)"]);
+  // 4-stop keyframes: morph in -> CLEAR HOLD (sharp, still) -> morph out.
+  const range = [c - SEG + HOLD, c - HOLD, c + HOLD, c + SEG - HOLD];
+  const opacity = useTransform(progress, range, [0, 1, 1, 0]);
+  const y = useTransform(progress, range, [30, 0, 0, -30]);
+  const scale = useTransform(progress, range, [1.03, 1, 1, 0.97]);
+  const filter = useTransform(progress, range, ["blur(8px)", "blur(0px)", "blur(0px)", "blur(8px)"]);
   return (
     <motion.div style={{ opacity, y, scale, filter }} className="pointer-events-none absolute inset-0 flex items-center justify-center">
       {children}
