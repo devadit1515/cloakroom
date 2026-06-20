@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, useMotionValueEvent, useScroll, type Variants } from "framer-motion";
+import { motion, useMotionValueEvent, useScroll, useTransform, type MotionValue } from "framer-motion";
 import { TokenChip } from "../ui/TokenChip";
 import { GlassPanel } from "../ui/GlassPanel";
 import { SectionLabel } from "../ui/SectionLabel";
@@ -30,7 +30,7 @@ const DETECTED = [
 ];
 
 const MASKED_LINE = "Prachan Mehta → [PII_PERSON_1] · 002233445566 → [PFI_ACCOUNT_1] · ₹84,500 → [PFI_AMOUNT_1] · diabetes → [PHI_CONDITION_1]";
-const REASON_LINE = "Customer [PII_PERSON_1] holds [PFI_ACCOUNT_1]. The [PFI_AMOUNT_1] order is consistent with prior activity; [PHI_CONDITION_1] care is noted. No anomaly detected.";
+const REASON_LINE = "Customer [PII_PERSON_1] holds [PFI_ACCOUNT_1]; the [PFI_AMOUNT_1] order matches prior activity. [PHI_CONDITION_1] care noted, no anomaly.";
 const RESTORED_LINE = "Customer Prachan Mehta holds ICICI account 002233445566. The ₹84,500 order is consistent with prior activity; diabetes care is noted. No anomaly detected.";
 
 // Captions kept to ~2 lines each so the four stages read at the same rhythm.
@@ -71,12 +71,13 @@ const STAGES: { title: string; caption: string; body: ReactNode }[] = [
 ];
 
 const N = STAGES.length;
+const SEG = 1 / (N - 1); // scroll span between two adjacent stages
 
 function StagePanel({ children, stacked = false }: { children: ReactNode; stacked?: boolean }) {
   return (
     <GlassPanel
       className={`glass-strong flex w-full max-w-4xl flex-col justify-center px-8 py-10 sm:px-14 sm:py-16 ${stacked ? "" : "h-full"}`}
-      specular
+      specular={false}
     >
       {children}
     </GlassPanel>
@@ -102,21 +103,27 @@ function StageHeader({ index, title, caption }: { index: number; title: string; 
   );
 }
 
-// Gentle crossfade with a small directional rise. Transform + opacity only — never blur.
-const slide: Variants = {
-  enter: (dir: number) => ({ opacity: 0, y: dir >= 0 ? 16 : -16 }),
-  center: { opacity: 1, y: 0 },
-  exit: (dir: number) => ({ opacity: 0, y: dir >= 0 ? -16 : 16 }),
-};
+/** A scroll-scrubbed layer. Opacity, a slight blur, scale and rise are all driven
+ *  continuously by scroll position, so stages glide and morph between each other
+ *  instead of snapping point-to-point. */
+function StageLayer({ progress, index, children }: { progress: MotionValue<number>; index: number; children: ReactNode }) {
+  const c = index * SEG;
+  const opacity = useTransform(progress, [c - SEG, c, c + SEG], [0, 1, 0]);
+  const y = useTransform(progress, [c - SEG, c, c + SEG], [34, 0, -34]);
+  const scale = useTransform(progress, [c - SEG, c, c + SEG], [1.03, 1, 0.97]);
+  const filter = useTransform(progress, [c - 0.62 * SEG, c, c + 0.62 * SEG], ["blur(8px)", "blur(0px)", "blur(8px)"]);
+  return (
+    <motion.div style={{ opacity, y, scale, filter }} className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      {children}
+    </motion.div>
+  );
+}
 
-function Rail({ active, onJump }: { active: number; onJump: (i: number) => void }) {
+function Rail({ active, fill, onJump }: { active: number; fill: MotionValue<string>; onJump: (i: number) => void }) {
   return (
     <div className="relative hidden h-[clamp(300px,46vh,440px)] w-44 shrink-0 lg:block">
       <div className="absolute left-[5px] top-0 h-full w-px bg-mercury/15" />
-      <div
-        className="absolute left-[5px] top-0 w-px bg-mercury-bright/70 transition-[height] duration-500 ease-out"
-        style={{ height: `${(active / (N - 1)) * 100}%` }}
-      />
+      <motion.div className="absolute left-[5px] top-0 w-px bg-mercury-bright/70" style={{ height: fill }} />
       {STAGES.map((s, i) => (
         <button
           key={s.title}
@@ -152,15 +159,11 @@ export function Pipeline() {
   const sectionRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
-  const [dir, setDir] = useState(1);
 
-  // Pure scroll control: each stage owns an equal slice of the short track.
+  // Rail fill tracks scroll continuously; the highlighted dot snaps to the nearest stage.
+  const railFill = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
-    const next = Math.min(N - 1, Math.max(0, Math.floor(v * N)));
-    setActive((prev) => {
-      if (next !== prev) setDir(next > prev ? 1 : -1);
-      return next;
-    });
+    setActive(Math.min(N - 1, Math.max(0, Math.round(v * (N - 1)))));
   });
 
   // Clicking the rail glides to a stage (same smooth scroll as the rest of the page).
@@ -170,14 +173,14 @@ export function Pipeline() {
     const target = Math.max(0, Math.min(N - 1, i));
     const travel = el.offsetHeight - window.innerHeight;
     const top = el.getBoundingClientRect().top + window.scrollY;
-    const targetY = top + ((target + 0.5) / N) * travel;
+    const targetY = top + (target / (N - 1)) * travel;
     const lenis = getLenis();
     if (lenis) lenis.scrollTo(targetY, { duration: 0.8 });
     else window.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
   if (reduced) {
-    // Accessible fallback: a calm stacked sequence, no pin.
+    // Accessible fallback: a calm stacked sequence, no pin, no scrub.
     return (
       <section id="pipeline" className="mx-auto max-w-5xl px-6 py-28">
         <SectionLabel>The pipeline</SectionLabel>
@@ -199,28 +202,19 @@ export function Pipeline() {
   }
 
   return (
-    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "150vh" }}>
+    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "180vh" }}>
       <div className="sticky top-0 flex h-[100svh] items-center overflow-hidden">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-10 px-6">
-          <Rail active={active} onJump={goTo} />
+          <Rail active={active} fill={railFill} onJump={goTo} />
           <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
-            <AnimatePresence initial={false} custom={dir}>
-              <motion.div
-                key={active}
-                custom={dir}
-                variants={slide}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute inset-0 flex items-center justify-center"
-              >
+            {STAGES.map((s, i) => (
+              <StageLayer key={s.title} progress={scrollYProgress} index={i}>
                 <StagePanel>
-                  <StageHeader index={active} title={STAGES[active].title} caption={STAGES[active].caption} />
-                  {STAGES[active].body}
+                  <StageHeader index={i} title={s.title} caption={s.caption} />
+                  {s.body}
                 </StagePanel>
-              </motion.div>
-            </AnimatePresence>
+              </StageLayer>
+            ))}
           </div>
         </div>
         <div className="absolute left-6 top-10 z-[5] sm:left-10">
