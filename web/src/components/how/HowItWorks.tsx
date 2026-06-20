@@ -54,11 +54,11 @@ export function HowItWorks() {
               unmask logic never changes — only the thin adapter underneath does.
             </p>
             <div className="mt-8 flex items-start gap-5">
-              <AdapterColumn role="Detect" options={["Presidio", "AWS Comprehend", "Azure AI", "GCP DLP"]} />
+              <AdapterColumn role="Detect" options={["Regex", "Presidio", "AWS Comprehend", "Azure AI", "GCP DLP"]} />
               <span aria-hidden className="mt-7 h-px flex-1 self-start bg-gradient-to-r from-mercury/30 to-transparent" />
-              <AdapterColumn role="Vault" options={["Redis", "Postgres", "Secrets Mgr", "Key Vault"]} />
+              <AdapterColumn role="Vault" options={["In-memory", "Redis", "Postgres", "Secrets Mgr", "Key Vault"]} />
               <span aria-hidden className="mt-7 h-px flex-1 self-start bg-gradient-to-r from-mercury/30 to-transparent" />
-              <AdapterColumn role="Model" options={["Local / Ollama", "Anthropic", "OpenAI", "Bedrock"]} />
+              <AdapterColumn role="Model" options={["Mock", "Ollama", "Anthropic", "OpenAI", "Bedrock"]} />
             </div>
           </GlassPanel>
         </motion.div>
@@ -86,7 +86,7 @@ export function HowItWorks() {
               The same value always maps to the same token within a session — so the model can reason
               about relationships across turns.
             </p>
-            <p className="mt-5 font-mono text-[12px] text-mercury-deep">Prachan → [PII_PERSON_1] · always</p>
+            <p className="mt-5 font-mono text-[12px] text-mercury-deep">002233445566 → [PFI_ACCOUNT_1] · always</p>
           </GlassPanel>
         </motion.div>
 
