@@ -77,44 +77,23 @@ def create_session() -> dict[str, str]:
     return {"session_id": uuid.uuid4().hex}
 
 
-# --- Prompt-aware masking decision via a hosted free LLM (Groq, open models) ---
-# The key lives in the GROQ_API_KEY env var (server-side), so callers never need
-# their own. Set CLOAKROOM_GROQ_MODEL to override the model.
+# --- Prompt-aware masking (no LLM sees the data) ----------------------------
+# Cloakroom's own detector finds + masks values on this server. A hosted free
+# model (Groq, open weights) is shown only the TASK and the list of TYPES found
+# (e.g. "PFI_ACCOUNT") to decide which categories to keep -- never the values.
+# Key lives in GROQ_API_KEY (server-side).
 GROQ_MODEL = os.getenv("CLOAKROOM_GROQ_MODEL", "llama-3.3-70b-versatile")
-_DECIDE_SYSTEM = (
-    "You are a privacy filter that prepares text before it is sent to a third-party LLM. "
-    "Given a TASK and DATA, find every sensitive value in DATA (names, phone numbers, emails, "
-    "postal addresses, government IDs like PAN/Aadhaar/SSN, bank accounts, IFSC/routing, card "
-    "numbers, amounts, dates of birth, medical conditions, etc). For each, decide: \"keep\" ONLY "
-    "if the value is genuinely required for the TASK to be answerable; \"mask\" otherwise (default "
-    "to masking when unsure). Use a short UPPERCASE type like PII_PERSON, PII_EMAIL, PII_PHONE, "
-    "PFI_ACCOUNT, PFI_AMOUNT, PFI_CARD, PHI_CONDITION, PII_ADDRESS, PII_ID. "
-    "Return STRICT JSON only: {\"items\":[{\"value\":\"<exact substring copied verbatim from "
-    "DATA>\",\"type\":\"<TYPE>\",\"action\":\"mask\"|\"keep\",\"reason\":\"<short>\"}]}. "
-    "Every value MUST appear verbatim in DATA. Do not invent values. No commentary."
+_TYPE_SYSTEM = (
+    "You decide which CATEGORIES of sensitive data must stay visible for a TASK. "
+    "You are given a TASK and a list of TYPES (e.g. PFI_ACCOUNT, PII_EMAIL) detected in some data; "
+    "you do NOT see the data itself. For each type, choose action 'keep' ONLY if values of that type "
+    "are essential to complete the TASK, otherwise 'mask'. "
+    "Return STRICT JSON: {\"decisions\":[{\"type\":\"<TYPE>\",\"action\":\"keep\"|\"mask\",\"reason\":\"<short>\"}]}."
 )
 
 
-class DecideRequest(BaseModel):
-    data: str
-    prompt: str | None = None
-
-
-class DecideItem(BaseModel):
-    value: str
-    type: str = "DATA"
-    action: str = "mask"
-    reason: str = ""
-
-
-class DecideResponse(BaseModel):
-    items: list[DecideItem]
-
-
-@app.post("/decide", response_model=DecideResponse)
-def decide(req: DecideRequest) -> DecideResponse:
-    """Ask a hosted free LLM which values to mask vs keep for the given task.
-    The token<->value mapping is built by the caller, so raw values aren't stored here."""
+def _groq_json(system: str, user: str) -> dict:
+    """Call Groq chat-completions in JSON mode. Raises HTTPException on failure."""
     key = os.getenv("GROQ_API_KEY")
     if not key:
         raise HTTPException(503, "GROQ_API_KEY is not configured on the server.")
@@ -123,8 +102,8 @@ def decide(req: DecideRequest) -> DecideResponse:
         "temperature": 0,
         "response_format": {"type": "json_object"},
         "messages": [
-            {"role": "system", "content": _DECIDE_SYSTEM},
-            {"role": "user", "content": f"TASK:\n{req.prompt or '(no task — mask all sensitive values)'}\n\nDATA:\n{req.data}"},
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
         ],
     }
     request = urllib.request.Request(
@@ -145,25 +124,71 @@ def decide(req: DecideRequest) -> DecideResponse:
         raise HTTPException(502, f"LLM provider error {e.code}: {e.read().decode('utf-8', 'ignore')[:200]}")
     except Exception as e:  # noqa: BLE001 - surface a clean message to the client
         raise HTTPException(502, f"LLM call failed: {e}")
-
     try:
-        content = payload["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        raw_items = parsed.get("items", []) if isinstance(parsed, dict) else []
+        return json.loads(payload["choices"][0]["message"]["content"])
     except (KeyError, IndexError, json.JSONDecodeError):
         raise HTTPException(502, "LLM returned an unexpected response.")
 
-    items: list[DecideItem] = []
-    for it in raw_items:
-        if not isinstance(it, dict) or not it.get("value"):
-            continue
-        items.append(DecideItem(
-            value=str(it.get("value")),
-            type=str(it.get("type", "DATA")),
-            action=str(it.get("action", "mask")),
-            reason=str(it.get("reason", "")),
-        ))
-    return DecideResponse(items=items)
+
+class SmartMaskRequest(BaseModel):
+    data: str
+    prompt: str | None = None
+
+
+class SmartMaskItem(BaseModel):
+    token: str
+    value: str
+    type: str
+
+
+class SmartMaskKept(BaseModel):
+    type: str
+    reason: str = ""
+
+
+class SmartMaskResponse(BaseModel):
+    masked_payload: str
+    mapping: dict[str, str]            # token -> value; unmask locally in the browser
+    masked: list[SmartMaskItem]
+    kept: list[SmartMaskKept]
+
+
+@app.post("/smart-mask", response_model=SmartMaskResponse)
+def smart_mask(req: SmartMaskRequest) -> SmartMaskResponse:
+    """Detect + mask here (no LLM sees the data). When a task prompt is given and a
+    key is set, Groq picks which detected TYPES to keep -- seeing only the type
+    names and the prompt, never the values."""
+    from cloakroom.detection.base import dedupe_overlaps
+    from cloakroom.masking.strategies import TokenStrategy
+    from cloakroom.masking.tokenizer import Tokenizer
+    from cloakroom.vault.crypto import Crypto
+    from cloakroom.vault.memory_vault import InMemoryVault
+
+    detector = get_pipeline()._detector
+    spans = dedupe_overlaps(detector.detect(req.data))
+
+    def type_of(s: Any) -> str:
+        return f"{s.category.value}_{s.subtype.upper()}"
+
+    types_present = sorted({type_of(s) for s in spans})
+    keep_types: set[str] = set()
+    kept_reason: dict[str, str] = {}
+    if types_present and req.prompt and os.getenv("GROQ_API_KEY"):
+        parsed = _groq_json(_TYPE_SYSTEM, f"TASK:\n{req.prompt}\n\nTYPES FOUND: {', '.join(types_present)}")
+        for d in (parsed.get("decisions", []) if isinstance(parsed, dict) else []):
+            if isinstance(d, dict) and str(d.get("action")) == "keep" and d.get("type"):
+                t = str(d["type"])
+                keep_types.add(t)
+                kept_reason[t] = str(d.get("reason", ""))
+
+    mask_spans = [s for s in spans if type_of(s) not in keep_types]
+    tokenizer = Tokenizer(InMemoryVault(Crypto(None), 600), "smart-" + uuid.uuid4().hex, TokenStrategy())
+    res = tokenizer.mask(req.data, mask_spans)
+
+    mapping = {e.token: e.value for e in res.entries}
+    masked = [SmartMaskItem(token=e.token, value=e.value, type=f"{e.category.value}_{e.subtype.upper()}") for e in res.entries]
+    kept = [SmartMaskKept(type=t, reason=kept_reason.get(t, "")) for t in types_present if t in keep_types]
+    return SmartMaskResponse(masked_payload=res.masked_text, mapping=mapping, masked=masked, kept=kept)
 
 
 class MaskRequest(BaseModel):

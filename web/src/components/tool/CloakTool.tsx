@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GlassPanel } from "../ui/GlassPanel";
 import { MercuryButton } from "../ui/MercuryButton";
-import { decide, applyDecisions, unmask, type CloakResult } from "../../lib/cloak";
+import { smartMask, unmask, type CloakResult } from "../../lib/cloak";
 
 function colorFor(type: string): string {
   if (type.startsWith("PHI")) return "#5FB3A8";
@@ -42,9 +42,9 @@ const ta =
   "w-full resize-y rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[13px] leading-relaxed text-mercury-bright outline-none focus-visible:border-mercury/40";
 
 export function CloakTool() {
-  const [prompt, setPrompt] = useState("Summarize this customer complaint and suggest next steps.");
+  const [prompt, setPrompt] = useState("Summarize this refund request and suggest next steps.");
   const [data, setData] = useState(
-    "Aarav Sharma (PAN ABCDE1234F) is furious about a wrong ₹84,500 charge on account 002233445566. Reach him at aarav@example.com. He also mentioned his diabetes meds were delayed."
+    "Refund of ₹84,500 requested on account 002233445566 (PAN ABCDE1234F). Customer email aarav@example.com, phone +91 98765 43210."
   );
   const [result, setResult] = useState<CloakResult | null>(null);
   const [reply, setReply] = useState("");
@@ -58,8 +58,7 @@ export function CloakTool() {
     if (!data.trim()) return setError("Paste some data first.");
     setLoading(true);
     try {
-      const items = await decide(data, prompt);
-      setResult(applyDecisions(data, items));
+      setResult(await smartMask(data, prompt));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
@@ -81,16 +80,17 @@ export function CloakTool() {
           Prompt-aware cloak
         </h1>
         <p className="mt-3 max-w-xl text-pretty leading-relaxed text-mercury/70">
-          Paste your data and what you want done. Gemini decides what to hide and what to keep for
-          the task. Copy the masked text into any LLM, then paste its reply back to restore the real
-          values — locally.
+          Paste your data and what you want done. Cloakroom finds and masks the sensitive values; an
+          open model decides what to keep for your task. Copy the masked text into any LLM, then paste
+          its reply back to restore the real values — locally.
         </p>
       </header>
 
       <div className="mt-6 rounded-2xl border border-[#5FB3A8]/25 bg-[#5FB3A8]/[0.05] p-4 text-[13px] leading-relaxed text-mercury/80">
-        <span className="font-medium text-mercury-bright">🔒 Private by design.</span> Your LLM only
-        ever sees the prompt and the masked tokens — never your real data. Values are masked by a
-        local algorithm and held only in this browser tab, then deleted the moment you close it.
+        <span className="font-medium text-mercury-bright">🔒 No LLM sees your data.</span> Cloakroom's
+        own engine finds and masks the values. The model that tailors masking to your task is shown
+        only the categories found (e.g. “email”, “account”) and your prompt — never the data itself.
+        The token map stays in this browser tab and is wiped when you close it.
       </div>
 
       {/* how to use */}
@@ -115,8 +115,8 @@ export function CloakTool() {
       </div>
 
       <p className="mt-4 font-mono text-[11px] text-mercury/45">
-        No key needed — the mask/keep decision runs on a hosted open model (Groq · Llama); only the
-        masked text is ever sent to your main LLM.
+        Detection runs on Cloakroom's own engine — no LLM sees your data. The open model (Groq ·
+        Llama) only sees the category names + your prompt to decide what to keep. No key needed.
       </p>
 
       {/* 1 — input */}
@@ -163,7 +163,7 @@ export function CloakTool() {
               <div className="flex flex-col gap-1">
                 {result.kept.map((k, i) => (
                   <span key={i} className="font-mono text-[12px] text-mercury/65">
-                    <span className="text-mercury-bright">{k.value}</span> — {k.reason}
+                    <span className="text-mercury-bright">{k.type}</span>{k.reason ? ` — ${k.reason}` : ""}
                   </span>
                 ))}
               </div>

@@ -1,27 +1,32 @@
-// Prompt-aware masking. The mask/keep DECISION runs on a hosted free LLM (Groq,
-// open models) behind our /decide proxy, so no API key ever touches the browser.
-// Tokenizing and unmasking happen locally — the token->value map never leaves
-// this device.
+// Prompt-aware masking with NO LLM seeing your data.
+// Cloakroom's own detector finds + masks values on the server; a hosted open
+// model (Groq) is shown only the TASK and the category names found (never the
+// values) to decide what to keep. Unmasking happens locally — the token->value
+// map never leaves this browser tab.
 
 const API_BASE = (import.meta.env.VITE_CLOAKROOM_API as string | undefined) ?? "";
 
-export interface Decision {
+export interface MaskedItem {
+  token: string;
   value: string;
   type: string;
-  action: "mask" | "keep";
+}
+
+export interface KeptItem {
+  type: string;
   reason: string;
 }
 
 export interface CloakResult {
   maskedText: string;
   map: Record<string, string>; // token -> real value
-  masked: { token: string; value: string; type: string }[];
-  kept: Decision[];
+  masked: MaskedItem[];
+  kept: KeptItem[];
 }
 
-/** Ask the server which values to mask/keep for this task. */
-export async function decide(data: string, prompt: string): Promise<Decision[]> {
-  const res = await fetch(`${API_BASE}/decide`, {
+/** Detect + mask on the server; returns masked text + the token->value map. */
+export async function smartMask(data: string, prompt: string): Promise<CloakResult> {
+  const res = await fetch(`${API_BASE}/smart-mask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data, prompt }),
@@ -35,45 +40,15 @@ export async function decide(data: string, prompt: string): Promise<Decision[]> 
     } catch {
       /* ignore */
     }
-    throw new Error(`decide ${res.status}${detail ? `: ${detail}` : ""}`);
+    throw new Error(`smart-mask ${res.status}${detail ? `: ${detail}` : ""}`);
   }
   const json = await res.json();
-  return Array.isArray(json.items) ? json.items : [];
-}
-
-function sanitizeType(t: string): string {
-  const s = (t || "DATA").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-  return s || "DATA";
-}
-
-/** Replace masked values with stable tokens; same value -> same token. */
-export function applyDecisions(data: string, items: Decision[]): CloakResult {
-  const map: Record<string, string> = {};
-  const valueToToken: Record<string, string> = {};
-  const counters: Record<string, number> = {};
-  const masked: CloakResult["masked"] = [];
-
-  // Longest values first so a value isn't partially clobbered by a shorter overlap.
-  const toMask = items
-    .filter((i) => i.action === "mask" && i.value && data.includes(i.value))
-    .sort((a, b) => b.value.length - a.value.length);
-
-  let maskedText = data;
-  for (const it of toMask) {
-    let token = valueToToken[it.value];
-    if (!token) {
-      const prefix = sanitizeType(it.type);
-      const n = (counters[prefix] = (counters[prefix] || 0) + 1);
-      token = `[${prefix}_${n}]`;
-      valueToToken[it.value] = token;
-      map[token] = it.value;
-      masked.push({ token, value: it.value, type: prefix });
-    }
-    maskedText = maskedText.split(it.value).join(token); // literal, all occurrences
-  }
-
-  const kept = items.filter((i) => i.action === "keep" && i.value);
-  return { maskedText, map, masked, kept };
+  return {
+    maskedText: json.masked_payload ?? "",
+    map: json.mapping ?? {},
+    masked: Array.isArray(json.masked) ? json.masked : [],
+    kept: Array.isArray(json.kept) ? json.kept : [],
+  };
 }
 
 const TOKEN_RE = /\[[A-Z][A-Z0-9_]*\]/g;
