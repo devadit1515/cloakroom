@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll, type Variants } from "framer-motion";
 import { TokenChip } from "../ui/TokenChip";
 import { GlassPanel } from "../ui/GlassPanel";
 import { SectionLabel } from "../ui/SectionLabel";
 import { useMotionPref } from "../ui/MotionToggle";
 import { getLenis } from "../../hooks/useLenis";
-import { playSeal } from "../../lib/sound";
 import { CATEGORY_META, type Category } from "../../lib/types";
 
 const TOKEN_SPLIT = /(\[(?:PII|PHI|PFI)_[A-Z]+_\d+\])/g;
@@ -72,7 +71,6 @@ const STAGES: { title: string; caption: string; body: ReactNode }[] = [
 ];
 
 const N = STAGES.length;
-const AUTOPLAY_MS = 3000;
 
 function StagePanel({ children, stacked = false }: { children: ReactNode; stacked?: boolean }) {
   return (
@@ -104,11 +102,11 @@ function StageHeader({ index, title, caption }: { index: number; title: string; 
   );
 }
 
-// Crossfade with a small directional rise. Transform + opacity only — never blur.
+// Gentle crossfade with a small directional rise. Transform + opacity only — never blur.
 const slide: Variants = {
-  enter: (dir: number) => ({ opacity: 0, y: dir >= 0 ? 26 : -26 }),
+  enter: (dir: number) => ({ opacity: 0, y: dir >= 0 ? 16 : -16 }),
   center: { opacity: 1, y: 0 },
-  exit: (dir: number) => ({ opacity: 0, y: dir >= 0 ? -26 : 26 }),
+  exit: (dir: number) => ({ opacity: 0, y: dir >= 0 ? -16 : 16 }),
 };
 
 function Rail({ active, onJump }: { active: number; onJump: (i: number) => void }) {
@@ -152,51 +150,20 @@ function Rail({ active, onJump }: { active: number; onJump: (i: number) => void 
 export function Pipeline() {
   const { reduced } = useMotionPref();
   const sectionRef = useRef<HTMLElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
   const [active, setActive] = useState(0);
   const [dir, setDir] = useState(1);
-  const [paused, setPaused] = useState(false);
-  const [inView, setInView] = useState(false);
-  const lastScroll = useRef(0);
 
-  // Even buckets: each stage owns an equal slice of the scroll track, so a steady
-  // scroll moves Detect -> Mask -> Reason -> Unmask at a constant rhythm.
+  // Pure scroll control: each stage owns an equal slice of the short track.
   useMotionValueEvent(scrollYProgress, "change", (v) => {
     const next = Math.min(N - 1, Math.max(0, Math.floor(v * N)));
     setActive((prev) => {
-      if (next !== prev) {
-        setDir(next > prev ? 1 : -1);
-        playSeal();
-      }
+      if (next !== prev) setDir(next > prev ? 1 : -1);
       return next;
     });
   });
 
-  // Note real user scrolls so autoplay never fights an active gesture.
-  useEffect(() => {
-    const mark = () => {
-      lastScroll.current = Date.now();
-    };
-    window.addEventListener("wheel", mark, { passive: true });
-    window.addEventListener("touchmove", mark, { passive: true });
-    return () => {
-      window.removeEventListener("wheel", mark);
-      window.removeEventListener("touchmove", mark);
-    };
-  }, []);
-
-  // Autoplay only while the pinned panel actually fills the screen.
-  useEffect(() => {
-    const el = stickyRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { threshold: 0.6 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  // Advance by animating real scroll position (Lenis) to the centre of the next
-  // stage's bucket, so manual scroll and autoplay share one source of truth.
+  // Clicking the rail glides to a stage (same smooth scroll as the rest of the page).
   const goTo = (i: number) => {
     const el = sectionRef.current;
     if (!el) return;
@@ -209,24 +176,8 @@ export function Pipeline() {
     else window.scrollTo({ top: targetY, behavior: "smooth" });
   };
 
-  // 3s autoplay — paused on hover, waits out manual scrolls, stops at the last stage.
-  useEffect(() => {
-    if (reduced || paused || !inView || active >= N - 1) return;
-    let timer = 0;
-    const tick = () => {
-      if (Date.now() - lastScroll.current < 1200) {
-        timer = window.setTimeout(tick, 500);
-        return;
-      }
-      goTo(active + 1);
-    };
-    timer = window.setTimeout(tick, AUTOPLAY_MS);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reduced, paused, inView, active]);
-
   if (reduced) {
-    // Accessible fallback: a calm stacked sequence, no pin, no autoplay.
+    // Accessible fallback: a calm stacked sequence, no pin.
     return (
       <section id="pipeline" className="mx-auto max-w-5xl px-6 py-28">
         <SectionLabel>The pipeline</SectionLabel>
@@ -248,13 +199,8 @@ export function Pipeline() {
   }
 
   return (
-    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "180vh" }}>
-      <div
-        ref={stickyRef}
-        className="sticky top-0 flex h-[100svh] items-center overflow-hidden"
-        onPointerEnter={() => setPaused(true)}
-        onPointerLeave={() => setPaused(false)}
-      >
+    <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "150vh" }}>
+      <div className="sticky top-0 flex h-[100svh] items-center overflow-hidden">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-10 px-6">
           <Rail active={active} onJump={goTo} />
           <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
@@ -266,7 +212,7 @@ export function Pipeline() {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
                 className="absolute inset-0 flex items-center justify-center"
               >
                 <StagePanel>
