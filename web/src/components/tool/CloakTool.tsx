@@ -71,7 +71,7 @@ export function CloakTool() {
   const bundle = result ? `${prompt.trim()}\n\n${result.maskedText}`.trim() : "";
 
   return (
-    <main className="relative z-[10] mx-auto min-h-[100svh] max-w-7xl px-6 py-14">
+    <main className="relative z-[10] mx-auto min-h-[100svh] w-[94vw] max-w-[100rem] px-6 py-14">
       <a href="/" className="font-mono text-[13px] text-mercury/60 hover:text-mercury-bright">
         ← Cloakroom
       </a>
@@ -133,7 +133,7 @@ export function CloakTool() {
                 id="prompt"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                minRows={3}
+                minRows={5}
                 spellCheck={false}
                 className={ta}
                 placeholder="e.g. Draft a polite reply to this refund request and list the next steps the customer should take."
@@ -148,7 +148,7 @@ export function CloakTool() {
                 id="data"
                 value={data}
                 onChange={(e) => setData(e.target.value)}
-                minRows={13}
+                minRows={20}
                 spellCheck={false}
                 className={ta}
                 placeholder="Paste the data you want to work with — a customer record, an email, a support ticket, a spreadsheet row…"
@@ -176,7 +176,7 @@ export function CloakTool() {
 
               {result ? (
                 <>
-                  <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[14px] leading-relaxed text-mercury/85">
+                  <pre className="max-h-[36rem] min-h-[18rem] overflow-auto whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[14px] leading-relaxed text-mercury/85">
                     {bundle}
                   </pre>
                   {result.masked.length > 0 && (
@@ -204,7 +204,7 @@ export function CloakTool() {
                   {result.masked.length === 0 && <span className="font-mono text-[12px] text-mercury/55">Nothing was masked for this task.</span>}
                 </>
               ) : (
-                <p className="rounded-xl border border-dashed border-white/10 bg-obsidian-900/40 px-4 py-12 text-center font-mono text-[13px] leading-relaxed text-mercury/45">
+                <p className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-white/10 bg-obsidian-900/40 px-4 text-center font-mono text-[13px] leading-relaxed text-mercury/45">
                   Your masked, LLM-safe text appears here once you cloak.
                 </p>
               )}
@@ -218,7 +218,7 @@ export function CloakTool() {
               <AutoTextarea
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
-                minRows={6}
+                minRows={14}
                 spellCheck={false}
                 className={ta}
                 placeholder="Paste the LLM's reply (with tokens) here…"
