@@ -49,20 +49,7 @@ export function MercuryButton({
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", stiffness: 380, damping: 24 }}
     >
-      {variant === "primary" && (
-        <motion.span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            background:
-              "linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.65) 50%, transparent 75%)",
-          }}
-          initial={{ x: "-130%" }}
-          whileHover={{ x: "130%" }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-        />
-      )}
-      <span className="relative z-[1] inline-flex items-center gap-2">{children}</span>
+      {children}
     </motion.button>
   );
 }

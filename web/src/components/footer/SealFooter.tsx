@@ -16,7 +16,6 @@ export function SealFooter() {
     if (reduced) {
       animate(".door-l", { x: "0%" }, { duration: 0 });
       animate(".door-r", { x: "0%" }, { duration: 0 });
-      animate(".seam", { opacity: 0.6 }, { duration: 0 });
       return;
     }
     const seq = async () => {
@@ -24,8 +23,7 @@ export function SealFooter() {
         [
           [".door-l", { x: "0%" }, { type: "spring", stiffness: 70, damping: 18 }],
           [".door-r", { x: "0%" }, { type: "spring", stiffness: 70, damping: 18, at: "<" }],
-          [".seam", { opacity: [0, 1, 0.55], scaleY: [0.5, 1, 1] }, { duration: 0.7, at: "-0.25" }],
-          [".seal-copy", { opacity: [0, 1], y: [12, 0] }, { duration: 0.6, at: "-0.2" }],
+          [".seal-copy", { opacity: [0, 1], y: [12, 0] }, { duration: 0.6, at: "-0.3" }],
         ]
       );
     };
@@ -46,16 +44,10 @@ export function SealFooter() {
           initial={{ x: "104%" }}
           style={{ borderLeft: "none" }}
         />
-        {/* seam of light at the meeting line */}
-        <motion.div
-          className="seam absolute inset-y-6 left-1/2 w-[2px] -translate-x-1/2"
-          initial={{ opacity: 0, scaleY: 0.5 }}
-          style={{ background: "linear-gradient(180deg, transparent, rgba(234,240,248,0.9), transparent)", boxShadow: "0 0 18px 2px rgba(234,240,248,0.5)" }}
-        />
         {/* engraved closing line on the sealed door */}
         <div className="seal-copy absolute inset-0 flex flex-col items-center justify-center text-center" style={{ opacity: reduced ? 1 : 0 }}>
           <p className="font-display text-[clamp(1.4rem,3.4vw,2.1rem)] font-medium tracking-[-0.02em] text-mercury-bright">
-            Step out. The room stays sealed.
+            Your data never left the room.
           </p>
           <p className="mt-2 font-mono text-[12px] text-mercury/55">detect · mask · reason · unmask</p>
         </div>
