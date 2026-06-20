@@ -36,7 +36,7 @@ export function SealFooter() {
         <motion.div className="seal-panel glass glass-strong absolute inset-0 rounded-[24px]" initial={{ opacity: 0, y: 16 }} />
         <div className="seal-copy absolute inset-0 flex flex-col items-center justify-center text-center" style={{ opacity: reduced ? 1 : 0 }}>
           <p className="font-display text-[clamp(1.4rem,3.4vw,2.1rem)] font-medium tracking-[-0.02em] text-mercury-bright">
-            Your data never left the room.
+            Your data never leaves the room.
           </p>
           <p className="mt-2 font-mono text-[12px] text-mercury/55">detect · mask · reason · unmask</p>
         </div>
