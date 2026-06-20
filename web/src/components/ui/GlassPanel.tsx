@@ -5,12 +5,14 @@ type Props = HTMLMotionProps<"div"> & {
   children: ReactNode;
   /** Show a soft specular highlight that tracks the cursor across the glass. */
   specular?: boolean;
+  /** Show the faint iridescent top-edge line. Turn off for panels where it reads as a stray white line. */
+  edge?: boolean;
   className?: string;
 };
 
 /** A ~6mm-thick liquid-glass surface: translucent fill, light-catching top edge,
  *  ambient-occlusion drop shadow, and an optional cursor-tracked specular sheen. */
-export function GlassPanel({ children, specular = true, className = "", ...rest }: Props) {
+export function GlassPanel({ children, specular = true, edge = true, className = "", ...rest }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mx = useMotionValue(50);
   const my = useMotionValue(0);
@@ -38,14 +40,16 @@ export function GlassPanel({ children, specular = true, className = "", ...rest 
         />
       )}
       {/* faint iridescent top edge */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-px"
-        style={{
-          background:
-            "linear-gradient(90deg, transparent, rgba(177,151,214,0.35), rgba(234,240,248,0.5), rgba(220,184,126,0.3), transparent)",
-        }}
-      />
+      {edge && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-px"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(177,151,214,0.35), rgba(234,240,248,0.5), rgba(220,184,126,0.3), transparent)",
+          }}
+        />
+      )}
       <div className="relative z-[1]">{children}</div>
     </motion.div>
   );
