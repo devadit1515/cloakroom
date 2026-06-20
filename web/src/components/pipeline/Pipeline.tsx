@@ -220,7 +220,7 @@ export function Pipeline() {
             ))}
           </div>
         </div>
-        <div className="absolute left-6 top-10 z-[5] sm:left-10">
+        <div className="absolute left-6 top-24 z-[5] sm:left-10">
           <SectionLabel>The pipeline</SectionLabel>
         </div>
       </div>

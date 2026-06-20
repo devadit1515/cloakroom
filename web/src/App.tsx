@@ -15,7 +15,7 @@ function Wordmark() {
     <motion.button
       type="button"
       onClick={() => scrollToId("vault")}
-      className="fixed left-4 top-4 z-[40] font-display text-[17px] font-semibold tracking-[-0.01em] text-mercury-bright/90 hover:text-mercury-bright focus-visible:outline-2 sm:left-6 sm:top-6"
+      className="fixed left-4 top-4 z-[40] font-display text-[21px] font-semibold tracking-[-0.01em] text-mercury-bright/90 hover:text-mercury-bright focus-visible:outline-2 sm:left-6 sm:top-6"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4, type: "spring", stiffness: 200, damping: 24 }}
