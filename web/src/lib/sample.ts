@@ -35,5 +35,11 @@ export const PLAYGROUND_DEFAULT = JSON.stringify(
   2
 );
 
+/** The same record as free text — for the "Text" tab of the playground. */
+export const PLAYGROUND_TEXT = `Customer Prachan Mehta banks with ICICI.
+Account 002233445566 (IFSC ICIC0001234), PAN ABCPM1234K.
+Order amount: ₹84,500.
+Note: follow up on diabetes management; prescribed Metformin.`;
+
 export const PLAYGROUND_INSTRUCTION =
   "Summarize this customer record in one sentence and flag anything unusual.";

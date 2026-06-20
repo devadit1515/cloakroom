@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { GlassPanel } from "../ui/GlassPanel";
 import { MercuryButton } from "../ui/MercuryButton";
+import { AutoTextarea } from "../ui/AutoTextarea";
 import { smartMask, unmask, type CloakResult } from "../../lib/cloak";
 
 function colorFor(type: string): string {
@@ -13,7 +14,7 @@ function colorFor(type: string): string {
 function Chip({ label, hex }: { label: string; hex: string }) {
   return (
     <span
-      className="inline-flex items-center rounded-full px-3 py-1 font-mono text-[12px]"
+      className="mx-1 inline-flex items-center rounded-full px-3 py-1 font-mono text-[12px]"
       style={{ color: hex, border: `1px solid ${hex}45`, background: "rgba(202,212,228,0.03)" }}
     >
       {label}
@@ -124,111 +125,117 @@ export function CloakTool() {
         {/* right — the working area */}
         <div className="flex min-w-0 flex-col gap-6">
           {/* 1 — input */}
-          <GlassPanel className="flex flex-col gap-5 p-6 sm:p-7" specular={false}>
-            <span className="label text-mercury-deep/90">1 · Your request</span>
+          <GlassPanel className="p-6 sm:p-7" specular={false}>
+            <div className="flex flex-col gap-5">
+              <span className="label text-mercury-deep/90">1 · Your request</span>
 
-            <div className="flex flex-col gap-2">
-              <label htmlFor="prompt" className={fieldLabel}>
-                what you want the AI to do
-              </label>
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={5}
-                spellCheck={false}
-                className={ta}
-                placeholder="e.g. Draft a polite reply to this refund request and list the next steps the customer should take."
-              />
-            </div>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="prompt" className={fieldLabel}>
+                  what you want the AI to do
+                </label>
+                <AutoTextarea
+                  id="prompt"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  minRows={4}
+                  spellCheck={false}
+                  className={ta}
+                  placeholder="e.g. Draft a polite reply to this refund request and list the next steps the customer should take."
+                />
+              </div>
 
-            <div className="flex flex-col gap-2">
-              <label htmlFor="data" className={fieldLabel}>
-                your data
-              </label>
-              <textarea
-                id="data"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-                rows={16}
-                spellCheck={false}
-                className={ta}
-                placeholder="Paste the data you want to work with — a customer record, an email, a support ticket, a spreadsheet row…"
-              />
-            </div>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="data" className={fieldLabel}>
+                  your data
+                </label>
+                <AutoTextarea
+                  id="data"
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  minRows={14}
+                  spellCheck={false}
+                  className={ta}
+                  placeholder="Paste the data you want to work with — a customer record, an email, a support ticket, a spreadsheet row…"
+                />
+              </div>
 
-            <div className="flex items-center justify-between gap-4">
-              {error ? <span className="font-mono text-[12px] text-[#DCB87E]">{error}</span> : <span />}
-              <MercuryButton onClick={cloak} disabled={loading}>
-                {loading ? "Cloaking…" : "Cloak with AI"}
-              </MercuryButton>
+              <div className="flex items-center justify-between gap-4">
+                {error ? <span className="font-mono text-[12px] text-[#DCB87E]">{error}</span> : <span />}
+                <MercuryButton onClick={cloak} disabled={loading}>
+                  {loading ? "Cloaking…" : "Cloak with AI"}
+                </MercuryButton>
+              </div>
             </div>
           </GlassPanel>
 
           {/* 2 — masked output */}
           {result && (
-            <GlassPanel className="flex flex-col gap-4 p-6 sm:p-7" specular={false}>
-              <div className="flex items-center justify-between">
-                <span className="label text-mercury-deep/90">2 · Send this to your LLM</span>
-                <CopyButton text={bundle} label="Copy prompt + masked" />
+            <GlassPanel className="p-6 sm:p-7" specular={false}>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="label text-mercury-deep/90">2 · Send this to your LLM</span>
+                  <CopyButton text={bundle} label="Copy prompt + masked" />
+                </div>
+                <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[14px] leading-relaxed text-mercury/85">
+                  {bundle}
+                </pre>
+                {result.masked.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-mercury-deep">masked</span>
+                    <div className="flex flex-wrap gap-y-2">
+                      {result.masked.map((m) => (
+                        <Chip key={m.token} label={`${m.token}`} hex={colorFor(m.type)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {result.kept.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-mercury-deep">kept visible (needed for the task)</span>
+                    <div className="flex flex-col gap-1">
+                      {result.kept.map((k, i) => (
+                        <span key={i} className="font-mono text-[12px] text-mercury/65">
+                          <span className="text-mercury-bright">{k.type}</span>{k.reason ? ` — ${k.reason}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {result.masked.length === 0 && <span className="font-mono text-[12px] text-mercury/55">Nothing was masked for this task.</span>}
               </div>
-              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[14px] leading-relaxed text-mercury/85">
-                {bundle}
-              </pre>
-              {result.masked.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-mercury-deep">masked</span>
-                  <div className="flex flex-wrap gap-2">
-                    {result.masked.map((m) => (
-                      <Chip key={m.token} label={`${m.token}`} hex={colorFor(m.type)} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {result.kept.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-mercury-deep">kept visible (needed for the task)</span>
-                  <div className="flex flex-col gap-1">
-                    {result.kept.map((k, i) => (
-                      <span key={i} className="font-mono text-[12px] text-mercury/65">
-                        <span className="text-mercury-bright">{k.type}</span>{k.reason ? ` — ${k.reason}` : ""}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {result.masked.length === 0 && <span className="font-mono text-[12px] text-mercury/55">Nothing was masked for this task.</span>}
             </GlassPanel>
           )}
 
           {/* 3 — decrypt */}
           {result && (
-            <GlassPanel className="flex flex-col gap-4 p-6 sm:p-7" specular={false}>
-              <span className="label text-mercury-deep/90">3 · Uncloak the reply</span>
-              <textarea
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                rows={8}
-                spellCheck={false}
-                className={ta}
-                placeholder="Paste the LLM's reply (with tokens) here…"
-              />
-              <div className="flex items-center justify-end">
-                <MercuryButton onClick={() => setRestored(unmask(reply, result.map))} disabled={!reply.trim()}>
-                  Uncloak reply
-                </MercuryButton>
-              </div>
-              {restored !== null && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-mercury-deep">restored</span>
-                    <CopyButton text={restored} />
-                  </div>
-                  <p className="whitespace-pre-wrap rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 text-[15px] leading-relaxed text-mercury-bright">
-                    {restored}
-                  </p>
+            <GlassPanel className="p-6 sm:p-7" specular={false}>
+              <div className="flex flex-col gap-4">
+                <span className="label text-mercury-deep/90">3 · Uncloak the reply</span>
+                <AutoTextarea
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  minRows={8}
+                  spellCheck={false}
+                  className={ta}
+                  placeholder="Paste the LLM's reply (with tokens) here…"
+                />
+                <div className="flex items-center justify-end">
+                  <MercuryButton onClick={() => setRestored(unmask(reply, result.map))} disabled={!reply.trim()}>
+                    Uncloak reply
+                  </MercuryButton>
                 </div>
-              )}
+                {restored !== null && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-mercury-deep">restored</span>
+                      <CopyButton text={restored} />
+                    </div>
+                    <p className="whitespace-pre-wrap rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 text-[15px] leading-relaxed text-mercury-bright">
+                      {restored}
+                    </p>
+                  </div>
+                )}
+              </div>
             </GlassPanel>
           )}
         </div>

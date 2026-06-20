@@ -4,8 +4,12 @@ import { GlassPanel } from "../ui/GlassPanel";
 import { MercuryButton } from "../ui/MercuryButton";
 import { SectionLabel } from "../ui/SectionLabel";
 import { TokenChip } from "../ui/TokenChip";
+import { AutoTextarea } from "../ui/AutoTextarea";
 import { processPayload } from "../../lib/api";
-import { PLAYGROUND_DEFAULT, PLAYGROUND_INSTRUCTION } from "../../lib/sample";
+import { PLAYGROUND_DEFAULT, PLAYGROUND_TEXT, PLAYGROUND_INSTRUCTION } from "../../lib/sample";
+
+type InputFormat = "json" | "text";
+const SAMPLE: Record<InputFormat, string> = { json: PLAYGROUND_DEFAULT, text: PLAYGROUND_TEXT };
 import {
   CATEGORY_META,
   STRATEGY_OPTIONS,
@@ -79,7 +83,8 @@ function ResultCard({
 }
 
 export function Playground() {
-  const [input, setInput] = useState(PLAYGROUND_DEFAULT);
+  const [format, setFormat] = useState<InputFormat>("json");
+  const [input, setInput] = useState(SAMPLE.json);
   const [result, setResult] = useState<ProcessResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [strategy, setStrategy] = useState<MaskStrategyName>("token");
@@ -139,16 +144,39 @@ export function Playground() {
       {/* input */}
       <div className="mt-10">
         <GlassPanel className="p-5 sm:p-6" specular={false}>
-          <label htmlFor="record" className="label mb-3 block text-mercury-deep/90">
-            input — text or JSON
-          </label>
-          <textarea
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <label htmlFor="record" className="label text-mercury-deep/90">
+              input
+            </label>
+            <div className="flex items-center gap-2">
+              {(["json", "text"] as const).map((f) => {
+                const active = f === format;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => {
+                      setFormat(f);
+                      setInput(SAMPLE[f]);
+                    }}
+                    aria-pressed={active}
+                    className={`rounded-full px-3.5 py-1.5 font-mono text-[12px] uppercase tracking-[0.1em] transition-colors focus-visible:outline-2 ${
+                      active ? "bg-mercury text-obsidian-900" : "glass text-mercury/70 hover:text-mercury-bright"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <AutoTextarea
             id="record"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             spellCheck={false}
-            rows={8}
-            className="w-full resize-y rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[13px] leading-relaxed text-mercury-bright outline-none focus-visible:border-mercury/40"
+            minRows={5}
+            className="w-full rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[13px] leading-relaxed text-mercury-bright outline-none focus-visible:border-mercury/40"
           />
 
           {/* masking strategy — how each value is replaced */}
@@ -182,7 +210,7 @@ export function Playground() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setInput(PLAYGROUND_DEFAULT)}
+                onClick={() => setInput(SAMPLE[format])}
                 className="rounded-full border border-white/12 bg-white/[0.03] px-4 py-2.5 font-mono text-[12px] text-mercury/75 transition-colors hover:border-white/25 hover:text-mercury-bright focus-visible:outline-2"
               >
                 reset sample
@@ -250,52 +278,56 @@ export function Playground() {
             viewport={{ once: true }}
             className="md:col-span-2"
           >
-            <GlassPanel className="flex h-full flex-wrap items-center gap-4 px-5 py-5" specular={false}>
-              <span className="label mr-1 text-mercury-deep/90">detected</span>
-              {CATEGORIES.map((cat) => {
-                const { total, subs } = grouped(cat);
-                const meta = CATEGORY_META[cat];
-                if (total === 0) return null;
-                return (
-                  <motion.span
-                    key={cat}
-                    variants={chipItem}
-                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px]"
-                    style={{ color: meta.hex, border: `1px solid ${meta.hex}45`, background: "rgba(202,212,228,0.03)" }}
-                  >
-                    <span className="font-medium">{meta.full}</span>
-                    <span className="tabular font-mono text-mercury-bright">{total}</span>
-                    <span className="text-[10px] uppercase tracking-[0.14em] opacity-55">
-                      {subs.map((s) => s.sub).join(" · ")}
-                    </span>
-                  </motion.span>
-                );
-              })}
-              {Object.keys(result.detected_counts).length === 0 && (
-                <span className="font-mono text-[13px] text-mercury/55">no sensitive entities found</span>
-              )}
+            <GlassPanel className="h-full px-5 py-5" specular={false}>
+              <div className="flex h-full flex-wrap items-center gap-y-2">
+                <span className="label mx-2 text-mercury-deep/90">detected</span>
+                {CATEGORIES.map((cat) => {
+                  const { total, subs } = grouped(cat);
+                  const meta = CATEGORY_META[cat];
+                  if (total === 0) return null;
+                  return (
+                    <motion.span
+                      key={cat}
+                      variants={chipItem}
+                      className="mx-2 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px]"
+                      style={{ color: meta.hex, border: `1px solid ${meta.hex}45`, background: "rgba(202,212,228,0.03)" }}
+                    >
+                      <span className="font-medium">{meta.full}</span>
+                      <span className="tabular font-mono text-mercury-bright">{total}</span>
+                      <span className="text-[10px] uppercase tracking-[0.14em] opacity-55">
+                        {subs.map((s) => s.sub).join(" · ")}
+                      </span>
+                    </motion.span>
+                  );
+                })}
+                {Object.keys(result.detected_counts).length === 0 && (
+                  <span className="mx-2 font-mono text-[13px] text-mercury/55">no sensitive entities found</span>
+                )}
+              </div>
             </GlassPanel>
           </motion.div>
 
-          <GlassPanel className="flex h-full items-center gap-3 px-5 py-5" specular={false}>
-            <span
-              aria-hidden
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[14px]"
-              style={
-                result.flagged_leaks.length === 0
-                  ? { color: "#5FB3A8", border: "1px solid #5FB3A855" }
-                  : { color: "#DCB87E", border: "1px solid #DCB87E55" }
-              }
-            >
-              {result.flagged_leaks.length === 0 ? "✓" : "!"}
-            </span>
-            <div>
-              <p className="text-[13px] text-mercury-bright">
-                {result.flagged_leaks.length === 0
-                  ? "Output verified clean"
-                  : `${result.flagged_leaks.length} leak${result.flagged_leaks.length > 1 ? "s" : ""} flagged`}
-              </p>
-              <p className="font-mono text-[11px] text-mercury/55">secondary scan of the model output</p>
+          <GlassPanel className="h-full px-5 py-5" specular={false}>
+            <div className="flex h-full items-center gap-3">
+              <span
+                aria-hidden
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[14px]"
+                style={
+                  result.flagged_leaks.length === 0
+                    ? { color: "#5FB3A8", border: "1px solid #5FB3A855" }
+                    : { color: "#DCB87E", border: "1px solid #DCB87E55" }
+                }
+              >
+                {result.flagged_leaks.length === 0 ? "✓" : "!"}
+              </span>
+              <div>
+                <p className="text-[13px] text-mercury-bright">
+                  {result.flagged_leaks.length === 0
+                    ? "Output verified clean"
+                    : `${result.flagged_leaks.length} leak${result.flagged_leaks.length > 1 ? "s" : ""} flagged`}
+                </p>
+                <p className="font-mono text-[11px] text-mercury/55">secondary scan of the model output</p>
+              </div>
             </div>
           </GlassPanel>
         </div>
