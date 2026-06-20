@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { GlassPanel } from "../ui/GlassPanel";
 import { MercuryButton } from "../ui/MercuryButton";
-import { geminiDecide, applyDecisions, unmask, type CloakResult } from "../../lib/gemini";
-
-const KEY_STORE = "cloak_gemini_key";
+import { decide, applyDecisions, unmask, type CloakResult } from "../../lib/cloak";
 
 function colorFor(type: string): string {
   if (type.startsWith("PHI")) return "#5FB3A8";
@@ -44,7 +42,6 @@ const ta =
   "w-full resize-y rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-3 font-mono text-[13px] leading-relaxed text-mercury-bright outline-none focus-visible:border-mercury/40";
 
 export function CloakTool() {
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem(KEY_STORE) ?? "");
   const [prompt, setPrompt] = useState("Summarize this customer complaint and suggest next steps.");
   const [data, setData] = useState(
     "Aarav Sharma (PAN ABCDE1234F) is furious about a wrong ₹84,500 charge on account 002233445566. Reach him at aarav@example.com. He also mentioned his diabetes meds were delayed."
@@ -55,19 +52,13 @@ export function CloakTool() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function saveKey(v: string) {
-    setApiKey(v);
-    localStorage.setItem(KEY_STORE, v.trim());
-  }
-
   async function cloak() {
     setError("");
     setRestored(null);
-    if (!apiKey.trim()) return setError("Add your free Gemini API key first.");
     if (!data.trim()) return setError("Paste some data first.");
     setLoading(true);
     try {
-      const items = await geminiDecide(apiKey.trim(), data, prompt);
+      const items = await decide(data, prompt);
       setResult(applyDecisions(data, items));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -96,27 +87,10 @@ export function CloakTool() {
         </p>
       </header>
 
-      {/* API key */}
-      <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => saveKey(e.target.value)}
-          placeholder="Gemini API key (free)"
-          className="flex-1 rounded-xl border border-white/10 bg-obsidian-900/60 px-4 py-2.5 font-mono text-[13px] text-mercury-bright outline-none focus-visible:border-mercury/40"
-        />
-        <a
-          href="https://aistudio.google.com/apikey"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-white/12 bg-white/[0.03] px-3.5 py-2.5 text-center font-mono text-[12px] text-mercury/75 hover:border-white/25 hover:text-mercury-bright"
-        >
-          Get a free key ↗
-        </a>
-      </div>
-      <p className="mt-2 font-mono text-[11px] text-mercury/45">
-        Stored only in this browser. Gemini sees your data to decide masking; the masked text is what
-        you send to your main LLM.
+      <p className="mt-6 font-mono text-[11px] text-mercury/45">
+        The mask/keep decision runs on a hosted open model (Groq · Llama) — no key needed here. Your
+        data is analyzed there to decide masking; the masked text is what you paste into your main
+        LLM, and the token map stays in this browser.
       </p>
 
       {/* 1 — input */}

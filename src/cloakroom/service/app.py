@@ -7,11 +7,14 @@ session token-maps alive in-memory across requests (use the Redis vault for scal
 """
 from __future__ import annotations
 
+import json
 import os
+import urllib.error
+import urllib.request
 import uuid
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -72,6 +75,90 @@ def healthz() -> dict[str, str]:
 @app.post("/session")
 def create_session() -> dict[str, str]:
     return {"session_id": uuid.uuid4().hex}
+
+
+# --- Prompt-aware masking decision via a hosted free LLM (Groq, open models) ---
+# The key lives in the GROQ_API_KEY env var (server-side), so callers never need
+# their own. Set CLOAKROOM_GROQ_MODEL to override the model.
+GROQ_MODEL = os.getenv("CLOAKROOM_GROQ_MODEL", "llama-3.3-70b-versatile")
+_DECIDE_SYSTEM = (
+    "You are a privacy filter that prepares text before it is sent to a third-party LLM. "
+    "Given a TASK and DATA, find every sensitive value in DATA (names, phone numbers, emails, "
+    "postal addresses, government IDs like PAN/Aadhaar/SSN, bank accounts, IFSC/routing, card "
+    "numbers, amounts, dates of birth, medical conditions, etc). For each, decide: \"keep\" ONLY "
+    "if the value is genuinely required for the TASK to be answerable; \"mask\" otherwise (default "
+    "to masking when unsure). Use a short UPPERCASE type like PII_PERSON, PII_EMAIL, PII_PHONE, "
+    "PFI_ACCOUNT, PFI_AMOUNT, PFI_CARD, PHI_CONDITION, PII_ADDRESS, PII_ID. "
+    "Return STRICT JSON only: {\"items\":[{\"value\":\"<exact substring copied verbatim from "
+    "DATA>\",\"type\":\"<TYPE>\",\"action\":\"mask\"|\"keep\",\"reason\":\"<short>\"}]}. "
+    "Every value MUST appear verbatim in DATA. Do not invent values. No commentary."
+)
+
+
+class DecideRequest(BaseModel):
+    data: str
+    prompt: str | None = None
+
+
+class DecideItem(BaseModel):
+    value: str
+    type: str = "DATA"
+    action: str = "mask"
+    reason: str = ""
+
+
+class DecideResponse(BaseModel):
+    items: list[DecideItem]
+
+
+@app.post("/decide", response_model=DecideResponse)
+def decide(req: DecideRequest) -> DecideResponse:
+    """Ask a hosted free LLM which values to mask vs keep for the given task.
+    The token<->value mapping is built by the caller, so raw values aren't stored here."""
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        raise HTTPException(503, "GROQ_API_KEY is not configured on the server.")
+    body = {
+        "model": GROQ_MODEL,
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": _DECIDE_SYSTEM},
+            {"role": "user", "content": f"TASK:\n{req.prompt or '(no task — mask all sensitive values)'}\n\nDATA:\n{req.data}"},
+        ],
+    }
+    request = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=25) as resp:
+            payload = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        raise HTTPException(502, f"LLM provider error {e.code}: {e.read().decode('utf-8', 'ignore')[:200]}")
+    except Exception as e:  # noqa: BLE001 - surface a clean message to the client
+        raise HTTPException(502, f"LLM call failed: {e}")
+
+    try:
+        content = payload["choices"][0]["message"]["content"]
+        parsed = json.loads(content)
+        raw_items = parsed.get("items", []) if isinstance(parsed, dict) else []
+    except (KeyError, IndexError, json.JSONDecodeError):
+        raise HTTPException(502, "LLM returned an unexpected response.")
+
+    items: list[DecideItem] = []
+    for it in raw_items:
+        if not isinstance(it, dict) or not it.get("value"):
+            continue
+        items.append(DecideItem(
+            value=str(it.get("value")),
+            type=str(it.get("type", "DATA")),
+            action=str(it.get("action", "mask")),
+            reason=str(it.get("reason", "")),
+        ))
+    return DecideResponse(items=items)
 
 
 class MaskRequest(BaseModel):
