@@ -116,6 +116,39 @@ class MaskingPipeline:
             flagged_leaks=flagged,
         )
 
+    def mask(
+        self,
+        payload: Any,
+        session_id: str,
+        context: str | None = None,
+        strategy: MaskStrategy | str | None = None,
+    ) -> tuple[str, dict[str, str], dict[str, int]]:
+        """Mask only — no LLM, no unmask. Returns the masked text, the
+        placeholder->value map, and detected counts. Used by clients (e.g. the
+        browser extension) that send the masked text to their own LLM and unmask
+        the reply locally with the returned map."""
+        effective = (
+            strategy_from_name(strategy) if isinstance(strategy, str)
+            else strategy or self._strategy
+        )
+        tokenizer = Tokenizer(self._vault, session_id, effective)
+        masked, raw_entries = self._mask_payload(payload, tokenizer, context)
+        masked_payload = (
+            masked if isinstance(masked, str)
+            else json.dumps(masked, ensure_ascii=False, indent=2)
+        )
+        mapping = {e.token: e.value for e in raw_entries}
+        seen: set[tuple[str, str, str]] = set()
+        counts: dict[str, int] = {}
+        for e in raw_entries:
+            dedup_key = (e.category.value, e.subtype, e.value)
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+            ck = f"{e.category.value}:{e.subtype}"
+            counts[ck] = counts.get(ck, 0) + 1
+        return masked_payload, mapping, counts
+
     def _mask_payload(
         self, payload: Any, tokenizer: Tokenizer, context: str | None, field: str | None = None
     ) -> tuple[Any, list[TokenEntry]]:

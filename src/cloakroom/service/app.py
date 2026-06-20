@@ -74,6 +74,35 @@ def create_session() -> dict[str, str]:
     return {"session_id": uuid.uuid4().hex}
 
 
+class MaskRequest(BaseModel):
+    payload: Any                       # plain string or arbitrary JSON record
+    session_id: str | None = None
+    context: str | None = None
+    strategy: str | None = None        # token | redact | format_preserving | prefix
+
+
+class MaskResponse(BaseModel):
+    masked_payload: str                # send THIS to your own LLM
+    mapping: dict[str, str]            # placeholder -> real value; unmask locally
+    detected_counts: dict[str, int]
+    session_id: str
+
+
+@app.post("/mask", response_model=MaskResponse)
+def mask(req: MaskRequest) -> MaskResponse:
+    """Mask only. The caller (e.g. the browser extension) sends `masked_payload`
+    to its own LLM, then restores real values in the reply using `mapping` —
+    so the raw values never touch the model and never persist server-side."""
+    session_id = req.session_id or uuid.uuid4().hex
+    masked_payload, mapping, counts = get_pipeline().mask(
+        req.payload, session_id, context=req.context, strategy=req.strategy,
+    )
+    return MaskResponse(
+        masked_payload=masked_payload, mapping=mapping,
+        detected_counts=counts, session_id=session_id,
+    )
+
+
 @app.post("/process", response_model=ProcessResponse)
 def process(req: ProcessRequest) -> ProcessResponse:
     session_id = req.session_id or uuid.uuid4().hex
