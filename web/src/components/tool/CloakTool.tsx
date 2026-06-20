@@ -87,10 +87,31 @@ export function CloakTool() {
         </p>
       </header>
 
-      <p className="mt-6 font-mono text-[11px] text-mercury/45">
-        The mask/keep decision runs on a hosted open model (Groq · Llama) — no key needed here. Your
-        data is analyzed there to decide masking; the masked text is what you paste into your main
-        LLM, and the token map stays in this browser.
+      {/* how to use */}
+      <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <span className="label text-mercury-deep/90">how to use</span>
+        <ol className="mt-3 flex flex-col gap-2.5">
+          {[
+            ["Paste & cloak", "Add your data and what you want the AI to do, then hit “Cloak with AI”. Sensitive bits turn into tokens; only what the task needs stays visible."],
+            ["Send to any LLM", "Copy the masked block into ChatGPT, Claude, Perplexity — anything. It only ever sees tokens. Then copy its reply."],
+            ["Uncloak", "Paste that reply into box 3 and hit “Uncloak”. Tokens turn back into your real values, right here in your browser."],
+          ].map(([t, d], i) => (
+            <li key={i} className="flex gap-3 text-[14px] leading-relaxed text-mercury/75">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-mercury text-[11px] font-semibold text-obsidian-900">
+                {i + 1}
+              </span>
+              <span>
+                <span className="font-medium text-mercury-bright">{t}.</span> {d}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <p className="mt-4 font-mono text-[11px] text-mercury/45">
+        No key needed — the mask/keep decision runs on a hosted open model (Groq · Llama). Your data
+        is analyzed there to decide masking; the masked text is what your main LLM sees, and the
+        token map stays in this browser.
       </p>
 
       {/* 1 — input */}
