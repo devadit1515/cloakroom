@@ -11,8 +11,10 @@
 //      the server; unmasking happens entirely in your browser.
 
 const TOKEN_RE = /\[(?:PII|PHI|PFI)_[A-Z]+_\d+\]/g;
+const HAS_TOKEN = /\[(?:PII|PHI|PFI)_[A-Z]+_\d+\]/; // non-global, for .test()
 const MAP = {};               // token -> real value (this page session)
 let ENABLED = true;
+let busy = false;             // guard so auto-send doesn't loop on itself
 
 // ---- settings ---------------------------------------------------------------
 chrome.storage.local.get(["enabled", "cloakMap"]).then((c) => {
@@ -135,10 +137,91 @@ function setStatus(t) {
   if (statusEl) statusEl.textContent = t;
 }
 function renderStatus() {
-  setStatus(ENABLED ? "Cloakroom on — type, then Cloak" : "Cloakroom off");
+  setStatus(ENABLED ? "Cloakroom on — just type & send" : "Cloakroom off");
 }
 
-// Hotkey: Ctrl/Cmd + Shift + M to mask the current input.
+// ---- auto-mask on send ------------------------------------------------------
+// So you just type and hit Enter (or click send): we mask first, then send,
+// so the model never receives the raw text.
+
+function findSendButton() {
+  const sels = [
+    'button[data-testid="send-button"]',
+    'button[aria-label*="Send" i]',
+    'button[aria-label*="send message" i]',
+    'form button[type="submit"]',
+  ];
+  for (const s of sels) {
+    const b = document.querySelector(s);
+    if (b && !b.disabled && isVisible(b)) return b;
+  }
+  return null;
+}
+
+function triggerSend(el) {
+  const btn = findSendButton();
+  if (btn) return btn.click();
+  el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+}
+
+async function maskThenSend(el) {
+  const text = readComposer(el);
+  if (!text || HAS_TOKEN.test(text)) return false; // empty or already masked
+  busy = true;
+  try {
+    const resp = await chrome.runtime.sendMessage({ type: "cloak:mask", text });
+    if (resp && resp.ok) {
+      Object.assign(MAP, resp.data.mapping);
+      chrome.storage.local.set({ cloakMap: MAP });
+      setComposer(el, resp.data.masked_payload);
+      const n = Object.keys(resp.data.mapping).length;
+      setStatus(n ? `Masked ${n} value(s) — sending` : "Nothing sensitive — sending");
+      await new Promise((r) => setTimeout(r, 100));
+      triggerSend(el);
+    } else {
+      setStatus("Error: " + (resp && resp.error));
+    }
+  } finally {
+    setTimeout(() => (busy = false), 400);
+  }
+  return true;
+}
+
+// Intercept Enter on the composer.
+document.addEventListener(
+  "keydown",
+  (e) => {
+    if (!ENABLED || busy || e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+    const el = findComposer();
+    if (!el || (e.target !== el && !el.contains(e.target))) return;
+    const text = readComposer(el);
+    if (!text || HAS_TOKEN.test(text)) return; // let already-masked text send normally
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    maskThenSend(el);
+  },
+  true
+);
+
+// Intercept a click on the send button.
+document.addEventListener(
+  "click",
+  (e) => {
+    if (!ENABLED || busy) return;
+    const btn = e.target.closest ? e.target.closest("button") : null;
+    if (!btn || btn !== findSendButton()) return;
+    const el = findComposer();
+    if (!el) return;
+    const text = readComposer(el);
+    if (!text || HAS_TOKEN.test(text)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    maskThenSend(el);
+  },
+  true
+);
+
+// Hotkey: Ctrl/Cmd + Shift + M to mask the current input (without sending).
 window.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "M" || e.key === "m")) {
     e.preventDefault();
