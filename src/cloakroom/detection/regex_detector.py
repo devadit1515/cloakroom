@@ -53,7 +53,7 @@ _STRUCTURED = [
     ("PAN", re.compile(r"\b[A-Z]{5}[0-9]{4}[A-Z]\b"), 0.96, None, 0),
     ("CREDIT_CARD", re.compile(r"\b\d(?:[ -]?\d){12,18}\b"), 0.95, _luhn_ok, 0),
     ("AADHAAR", re.compile(r"\b\d{4}[ -]?\d{4}[ -]?\d{4}\b"), 0.94, None, 0),
-    ("PHONE", re.compile(r"(?<!\d)(?:\+91[ -]?)?[6-9]\d{9}(?!\d)"), 0.92, None, 0),
+    ("PHONE", re.compile(r"(?<!\d)(?:\+91[ -]?)?[6-9]\d{4}[ -]?\d{5}(?!\d)"), 0.92, None, 0),
     ("AMOUNT", re.compile(r"(?:₹|Rs\.?|INR|USD|\$)\s?\d[\d,]*(?:\.\d{1,2})?", re.IGNORECASE), 0.88, None, 0),
     ("BANK_ACCOUNT", re.compile(r"(?<!\d)\d{9,18}(?!\d)"), 0.60, None, 0),
 ]
