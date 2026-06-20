@@ -77,7 +77,7 @@ const HOLD = 0.36 * SEG; // half-width of the clear "hold" plateau around each s
 function StagePanel({ children, stacked = false }: { children: ReactNode; stacked?: boolean }) {
   return (
     <GlassPanel
-      className={`glass-strong flex w-full max-w-4xl flex-col justify-center px-8 py-10 sm:px-14 sm:py-16 ${stacked ? "" : "h-full"}`}
+      className={`glass-strong flex w-full max-w-5xl flex-col justify-center px-8 py-10 sm:px-14 sm:py-16 ${stacked ? "" : "h-full"}`}
       specular={false}
     >
       {children}
@@ -185,7 +185,7 @@ export function Pipeline() {
   if (reduced) {
     // Accessible fallback: a calm stacked sequence, no pin, no scrub.
     return (
-      <section id="pipeline" className="mx-auto max-w-5xl px-6 py-28">
+      <section id="pipeline" className="mx-auto max-w-6xl px-6 py-28">
         <SectionLabel>The pipeline</SectionLabel>
         <h2 className="mb-12 mt-5 font-display text-[clamp(2rem,5vw,3.2rem)] font-semibold tracking-[-0.025em] text-mercury-bright">
           Detect. Mask. Reason. Unmask.
@@ -207,7 +207,7 @@ export function Pipeline() {
   return (
     <section id="pipeline" ref={sectionRef} className="relative" style={{ height: "180vh" }}>
       <div className="sticky top-0 flex h-[100svh] items-center overflow-hidden">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-10 px-6">
+        <div className="mx-auto flex w-full max-w-7xl items-center gap-10 px-6">
           <Rail active={active} fill={railFill} onJump={goTo} />
           <div className="relative min-h-[clamp(380px,58vh,560px)] flex-1">
             {STAGES.map((s, i) => (

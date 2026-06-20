@@ -14,7 +14,7 @@
   color-scheme: dark;
 }
 
-html { -webkit-text-size-adjust: 100%; }
+html { font-size: 17px; -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;

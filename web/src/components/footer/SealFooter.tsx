@@ -30,7 +30,7 @@ export function SealFooter() {
   }, [inView, reduced, animate]);
 
   return (
-    <footer ref={scope} id="seal" className="relative mx-auto max-w-6xl px-6 pb-16 pt-24">
+    <footer ref={scope} id="seal" className="relative mx-auto max-w-7xl px-6 pb-16 pt-24">
       {/* the sealed surface — one seamless panel */}
       <div className="relative mx-auto h-[210px] w-full max-w-3xl">
         <motion.div className="seal-panel glass glass-strong absolute inset-0 rounded-[24px]" initial={{ opacity: 0, y: 16 }} />

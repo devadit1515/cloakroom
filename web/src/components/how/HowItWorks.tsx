@@ -17,7 +17,7 @@ function AdapterColumn({ role, options }: { role: string; options: string[] }) {
       {options.map((o, i) => (
         <span
           key={o}
-          className="font-mono text-[13px]"
+          className="whitespace-nowrap font-mono text-[13px]"
           style={{ color: i === 0 ? "#EAF0F8" : "rgba(140,151,171,0.7)" }}
         >
           {o}
@@ -30,9 +30,9 @@ function AdapterColumn({ role, options }: { role: string; options: string[] }) {
 
 export function HowItWorks() {
   return (
-    <section id="how" className="mx-auto max-w-6xl px-6 py-28">
+    <section id="how" className="mx-auto max-w-7xl px-6 py-28">
       <SectionLabel>Under the glass</SectionLabel>
-      <h2 className="mb-12 mt-5 max-w-2xl text-balance font-display text-[clamp(2rem,5vw,3.4rem)] font-semibold leading-[1.02] tracking-[-0.025em] text-mercury-bright">
+      <h2 className="mb-12 mt-5 max-w-3xl text-balance font-display text-[clamp(2.25rem,5.2vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.025em] text-mercury-bright">
         The same orchestration, on any cloud.
       </h2>
 
@@ -46,10 +46,10 @@ export function HowItWorks() {
         {/* large — cloud-agnostic diagram */}
         <motion.div variants={reveal} className="md:col-span-2 md:row-span-2">
           <GlassPanel className="flex h-full flex-col px-7 py-8" specular>
-            <h3 className="font-display text-[1.6rem] font-semibold tracking-[-0.02em] text-mercury-bright">
+            <h3 className="font-display text-[1.75rem] font-semibold tracking-[-0.02em] text-mercury-bright">
               Cloud-agnostic by design
             </h3>
-            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-mercury/70">
+            <p className="mt-3 max-w-lg text-[16px] leading-relaxed text-mercury/70">
               Detection, vault, and model each sit behind one interface. The detect → mask → reason →
               unmask logic never changes — only the thin adapter underneath does.
             </p>
@@ -66,10 +66,10 @@ export function HowItWorks() {
         {/* encrypted vault */}
         <motion.div variants={reveal}>
           <GlassPanel className="flex h-full flex-col justify-between px-6 py-7" specular>
-            <h3 className="font-display text-[1.3rem] font-semibold tracking-[-0.02em] text-mercury-bright">
+            <h3 className="font-display text-[1.4rem] font-semibold tracking-[-0.02em] text-mercury-bright">
               Encrypted vault
             </h3>
-            <p className="mt-2 text-[14px] leading-relaxed text-mercury/70">
+            <p className="mt-2 text-[15px] leading-relaxed text-mercury/70">
               Token → value pairs are Fernet-encrypted, scoped to the session, and expire on a TTL.
             </p>
             <p className="mt-5 font-mono text-[12px] text-mercury-deep">AES-128 · session-scoped · auto-expiry</p>
@@ -79,10 +79,10 @@ export function HowItWorks() {
         {/* session-consistent tokens */}
         <motion.div variants={reveal}>
           <GlassPanel className="flex h-full flex-col justify-between px-6 py-7" specular>
-            <h3 className="font-display text-[1.3rem] font-semibold tracking-[-0.02em] text-mercury-bright">
+            <h3 className="font-display text-[1.4rem] font-semibold tracking-[-0.02em] text-mercury-bright">
               Stable tokens
             </h3>
-            <p className="mt-2 text-[14px] leading-relaxed text-mercury/70">
+            <p className="mt-2 text-[15px] leading-relaxed text-mercury/70">
               The same value always maps to the same token within a session — so the model can reason
               about relationships across turns.
             </p>
@@ -94,10 +94,10 @@ export function HowItWorks() {
         <motion.div variants={reveal} className="md:col-span-3">
           <GlassPanel className="flex flex-col gap-3 px-6 py-6 md:flex-row md:items-center md:justify-between" specular={false}>
             <div>
-              <h3 className="font-display text-[1.3rem] font-semibold tracking-[-0.02em] text-mercury-bright">
+              <h3 className="font-display text-[1.4rem] font-semibold tracking-[-0.02em] text-mercury-bright">
                 Value-free audit log
               </h3>
-              <p className="mt-1 text-[14px] text-mercury/70">
+              <p className="mt-1 text-[15px] text-mercury/70">
                 Prove compliance without ever copying the data you are protecting.
               </p>
             </div>

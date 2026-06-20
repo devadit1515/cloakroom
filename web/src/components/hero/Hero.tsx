@@ -56,7 +56,7 @@ export function Hero() {
         initial="hidden"
         animate="show"
         style={{ opacity: fade }}
-        className="relative z-[10] mx-auto flex w-full max-w-5xl flex-col items-center text-center"
+        className="relative z-[10] mx-auto flex w-full max-w-6xl flex-col items-center text-center"
       >
         <motion.p variants={rise} className="label mb-6 text-mercury-deep">
           Cloud-agnostic masking middleware
@@ -65,14 +65,14 @@ export function Hero() {
         <motion.h1
           variants={rise}
           className="text-balance font-display font-semibold leading-[0.95] tracking-[-0.03em] text-mercury-bright"
-          style={{ fontSize: "clamp(3rem, 9vw, 6rem)" }}
+          style={{ fontSize: "clamp(3.25rem, 9vw, 6rem)" }}
         >
           Your data never meets the model.
         </motion.h1>
 
         <motion.p
           variants={rise}
-          className="mt-6 max-w-2xl text-pretty text-[clamp(1.05rem,2.4vw,1.3rem)] leading-relaxed text-mercury/85"
+          className="mt-6 max-w-2xl text-pretty text-[clamp(1.15rem,2.5vw,1.42rem)] leading-relaxed text-mercury/85"
         >
           Cloakroom swaps every sensitive value for a stable glass token before your LLM sees a
           thing — then restores the real answer for you alone.

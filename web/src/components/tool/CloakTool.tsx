@@ -70,7 +70,7 @@ export function CloakTool() {
   const bundle = result ? `${prompt.trim()}\n\n${result.maskedText}` : "";
 
   return (
-    <main className="relative z-[10] mx-auto min-h-[100svh] max-w-3xl px-6 py-16">
+    <main className="relative z-[10] mx-auto min-h-[100svh] max-w-4xl px-6 py-16">
       <a href="/" className="font-mono text-[13px] text-mercury/60 hover:text-mercury-bright">
         ← Cloakroom
       </a>

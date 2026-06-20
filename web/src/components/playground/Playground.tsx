@@ -124,13 +124,13 @@ export function Playground() {
   };
 
   return (
-    <section id="playground" className="mx-auto max-w-6xl px-6 py-28">
+    <section id="playground" className="mx-auto max-w-7xl px-6 py-28">
       <SectionLabel>The proof</SectionLabel>
       <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <h2 className="max-w-2xl text-balance font-display text-[clamp(2rem,5vw,3.4rem)] font-semibold leading-[1.02] tracking-[-0.025em] text-mercury-bright">
+        <h2 className="max-w-3xl text-balance font-display text-[clamp(2.25rem,5.2vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.025em] text-mercury-bright">
           Paste a record. Watch it leave nothing behind.
         </h2>
-        <p className="max-w-sm text-[15px] leading-relaxed text-mercury/65">
+        <p className="max-w-sm text-[16px] leading-relaxed text-mercury/65">
           The middle card is exactly what the model receives — tokens only. Try editing the record, or
           drag a token loose.
         </p>
