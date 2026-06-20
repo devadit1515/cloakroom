@@ -130,7 +130,12 @@ def decide(req: DecideRequest) -> DecideResponse:
     request = urllib.request.Request(
         "https://api.groq.com/openai/v1/chat/completions",
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+            # Groq sits behind Cloudflare, which blocks the default urllib UA (CF 1010).
+            "User-Agent": "Mozilla/5.0 (compatible; Cloakroom/0.1; +https://cloakroom-mu.vercel.app)",
+        },
         method="POST",
     )
     try:
