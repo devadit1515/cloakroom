@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Cloakroom",
+  "version": "0.1.0",
+  "description": "Mask PII/PHI/PFI before it reaches ChatGPT or Claude; unmask the reply locally.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://cloakroom-mu.vercel.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Cloakroom" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
