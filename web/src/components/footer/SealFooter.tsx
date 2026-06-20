@@ -4,8 +4,8 @@ import { useMotionPref } from "../ui/MotionToggle";
 
 const MARKS = ["HIPAA", "PCI-DSS", "GDPR", "DPDP"];
 
-/** The close: two vault-door halves slide together and seal with a seam of light.
- *  Choreographed with useAnimate; reduced motion ships the door already sealed. */
+/** The close: a single sealed glass surface settles into place and the line reveals.
+ *  One panel (no two-door seam). Reduced motion ships it already sealed. */
 export function SealFooter() {
   const { reduced } = useMotionPref();
   const [scope, animate] = useAnimate();
@@ -14,16 +14,15 @@ export function SealFooter() {
   useEffect(() => {
     if (!inView) return;
     if (reduced) {
-      animate(".door-l", { x: "0%" }, { duration: 0 });
-      animate(".door-r", { x: "0%" }, { duration: 0 });
+      animate(".seal-panel", { opacity: 1, y: 0 }, { duration: 0 });
+      animate(".seal-copy", { opacity: 1, y: 0 }, { duration: 0 });
       return;
     }
     const seq = async () => {
       await animate(
         [
-          [".door-l", { x: "0%" }, { type: "spring", stiffness: 70, damping: 18 }],
-          [".door-r", { x: "0%" }, { type: "spring", stiffness: 70, damping: 18, at: "<" }],
-          [".seal-copy", { opacity: [0, 1], y: [12, 0] }, { duration: 0.6, at: "-0.3" }],
+          [".seal-panel", { opacity: [0, 1], y: [16, 0] }, { type: "spring", stiffness: 80, damping: 18 }],
+          [".seal-copy", { opacity: [0, 1], y: [14, 0] }, { duration: 0.6, at: "-0.3" }],
         ]
       );
     };
@@ -32,19 +31,9 @@ export function SealFooter() {
 
   return (
     <footer ref={scope} id="seal" className="relative mx-auto max-w-6xl px-6 pb-16 pt-24">
-      {/* the door */}
-      <div className="relative mx-auto h-[210px] w-full max-w-3xl overflow-hidden rounded-[24px]">
-        <motion.div
-          className="door-l glass absolute inset-y-0 left-0 w-1/2 rounded-l-[24px]"
-          initial={{ x: "-104%" }}
-          style={{ borderRight: "none" }}
-        />
-        <motion.div
-          className="door-r glass absolute inset-y-0 right-0 w-1/2 rounded-r-[24px]"
-          initial={{ x: "104%" }}
-          style={{ borderLeft: "none" }}
-        />
-        {/* engraved closing line on the sealed door */}
+      {/* the sealed surface — one seamless panel */}
+      <div className="relative mx-auto h-[210px] w-full max-w-3xl">
+        <motion.div className="seal-panel glass glass-strong absolute inset-0 rounded-[24px]" initial={{ opacity: 0, y: 16 }} />
         <div className="seal-copy absolute inset-0 flex flex-col items-center justify-center text-center" style={{ opacity: reduced ? 1 : 0 }}>
           <p className="font-display text-[clamp(1.4rem,3.4vw,2.1rem)] font-medium tracking-[-0.02em] text-mercury-bright">
             Your data never left the room.
